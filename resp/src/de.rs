@@ -3,7 +3,7 @@ use crate::Resp;
 
 impl Resp {
     /// Convert a string into a `Resp` object
-    /// 
+    ///
     /// # Examples
     ///
     /// ```rust
@@ -28,6 +28,46 @@ impl Resp {
         } else {
             Err(Error::TrailingCharacters)
         }
+    }
+
+    /// Convert potentially multiple `Resp`s from a string
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use crate::resp::Resp;
+    ///
+    /// let input = "*2\r\n+hello\r\n+world\r\n*2\r\n+hello\r\n+world\r\n";
+    /// let resp: Vec<Resp> = Resp::vec_from_str(input).unwrap();
+    /// let expected = vec![
+    ///     Resp::Array(vec![
+    ///         Resp::SimpleString("hello".to_owned()),
+    ///         Resp::SimpleString("world".to_owned()),
+    ///     ]),
+    ///     Resp::Array(vec![
+    ///         Resp::SimpleString("hello".to_owned()),
+    ///         Resp::SimpleString("world".to_owned()),
+    ///     ]),
+    /// ];
+    ///
+    /// assert_eq!(resp, expected);
+    /// ```
+    pub fn vec_from_str(s: &str) -> Result<Vec<Self>> {
+        let mut out = Vec::new();
+
+        let mut deserializer = Deserializer::from_str(s);
+
+        while !deserializer.input.is_empty() {
+            let res = deserializer.deserialize_any()?;
+
+            out.push(res);
+        }
+
+        if out.len() == 0 {
+            return Err(Error::Eof)
+        }
+
+        Ok(out)
     }
 
     /// Convert a byte array into a `Resp` object
@@ -266,7 +306,7 @@ impl<'de> DeserializeResp for Deserializer<'de> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Resp, Error};
+    use crate::{Error, Resp};
 
     #[test]
     fn test_deserialize_bulk_string() {
