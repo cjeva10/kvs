@@ -1,5 +1,8 @@
 #[deny(missing_docs)]
 
+use crate::ser::SerializeResp;
+use std::fmt;
+
 mod de;
 mod error;
 mod ser;
@@ -25,4 +28,10 @@ pub enum Resp {
     Null,
     /// The null array is represented by the literal `*-1\r\n`
     NullArray,
+}
+
+impl fmt::Display for Resp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.serialize())
+    }
 }

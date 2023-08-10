@@ -2,6 +2,7 @@ use thiserror::Error;
 
 pub type Result<Resp> = std::result::Result<Resp, Error>;
 
+/// An error either serializing or deserializing a Resp object
 #[derive(Debug, Error, PartialEq)]
 pub enum Error {
     #[error("deserialization failed")]

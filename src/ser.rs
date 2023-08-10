@@ -1,4 +1,3 @@
-use std::fmt;
 use crate::Resp;
 
 impl Resp {
@@ -47,12 +46,6 @@ impl Resp {
         }
 
         out
-    }
-}
-
-impl fmt::Display for Resp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.serialize())
     }
 }
 
