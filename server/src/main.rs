@@ -23,9 +23,11 @@ fn handle_connection(mut stream: TcpStream) -> Result<()>{
 
     let _ = reader.read_to_string(&mut buf)?;
 
-    let resp = Resp::from_str(&buf)?;
+    let resp: Vec<Resp> = Resp::vec_from_str(&buf)?;
 
-    println!("{}", resp);
+    for r in resp {
+        println!("{}", r);
+    }
 
     Ok(())
 }
