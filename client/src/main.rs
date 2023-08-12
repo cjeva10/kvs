@@ -1,11 +1,11 @@
 use clap::{Parser, Subcommand};
 use eyre::Result;
-use resp::Resp;
 use log::debug;
+use resp::Resp;
 use std::{
     io::{BufReader, BufWriter, Read, Write},
     net::TcpStream,
-    process::exit,
+    str::from_utf8,
 };
 
 #[derive(Parser)]
@@ -51,11 +51,23 @@ fn main() -> Result<()> {
 
     let host = "localhost:6379";
     debug!("Connecting to server on {}", host);
-    let mut stream = TcpStream::connect(host).expect("Failed to connect to Tcp host");
-    let mut writer = BufWriter::new(&mut stream);
 
-    debug!("Sending command {:?}", args.command);
-    match args.command {
+    let reader = TcpStream::connect(host).expect("Failed to connect to Tcp host");
+    let writer = reader.try_clone()?;
+
+    let writer = BufWriter::new(writer);
+    let reader = BufReader::new(reader);
+
+    send_command(args.command, writer)?;
+
+    read_response(reader)?;
+
+    Ok(())
+}
+
+fn send_command(command: Command, mut writer: BufWriter<TcpStream>) -> Result<()> {
+    debug!("Sending command {:?}", command);
+    match command {
         Command::Set { key, value } => {
             let set = Resp::Array(vec![
                 Resp::BulkString("SET".to_string()),
@@ -64,7 +76,8 @@ fn main() -> Result<()> {
             ]);
 
             debug!("Sending SET {} {}", key, value);
-            writer.write(set.to_string().as_bytes()).unwrap();
+            writer.write_all(set.to_string().as_bytes())?;
+            debug!("Sent SET {} {}", key, value);
         }
         Command::Get { key } => {
             let get = Resp::Array(vec![
@@ -73,7 +86,8 @@ fn main() -> Result<()> {
             ]);
 
             debug!("Sending GET {}", key);
-            writer.write(get.to_string().as_bytes()).unwrap();
+            writer.write_all(get.to_string().as_bytes())?;
+            debug!("Sent GET {}", key);
         }
         Command::Remove { key } => {
             let rm = Resp::Array(vec![
@@ -82,25 +96,36 @@ fn main() -> Result<()> {
             ]);
 
             debug!("Sending REMOVE {}", key);
-            writer.write(rm.to_string().as_bytes()).unwrap();
+            writer.write_all(rm.to_string().as_bytes())?;
+            debug!("Sent REMOVE {}", key);
         }
         Command::Ping => {
             let ping = Resp::SimpleString("PING".to_owned());
             debug!("Sending PING");
-            writer.write(ping.to_string().as_bytes()).unwrap();
+            writer.write_all(ping.to_string().as_bytes())?;
+            debug!("Sent PING");
         }
     }
+
     writer.flush()?;
-    drop(writer);
 
-    let mut reader = BufReader::new(&mut stream);
-    let mut buf: String = String::new();
+    Ok(())
+}
 
-    let _ = reader.read_to_string(&mut buf)?;
+fn read_response(mut reader: BufReader<TcpStream>) -> Result<()> {
+    let mut response = [0; 1024];
 
-    let resp: Resp = Resp::from_str(&buf)?;
+    debug!("Reading reply");
 
-    debug!("Got response {}", resp);
+    let n = reader.read(&mut response)?;
+
+    debug!("Read response into buffer: {}", from_utf8(&response)?);
+
+    let resp: Resp = Resp::from_bytes(&response[..n])?;
+
+    debug!("Converted response into RESP");
+
+    debug!("Response = {}", resp);
 
     Ok(())
 }
