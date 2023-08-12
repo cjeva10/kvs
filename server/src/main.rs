@@ -1,12 +1,18 @@
 use eyre::Result;
 use kvs::KvStore;
-use log::debug;
+use log::{debug, trace};
 use resp::Resp;
 use std::{
     env::current_dir,
-    io::{BufReader, BufWriter, Read, Write},
-    net::{TcpListener, TcpStream},
+    io::{BufReader, Write, Read},
+    net::{TcpListener, TcpStream}, str::from_utf8,
 };
+
+enum Command {
+    Set { key: String, value: String },
+    Get { key: String },
+    Remove { key: String },
+}
 
 fn main() -> Result<()> {
     env_logger::init();
@@ -29,21 +35,21 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn handle_connection(mut stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
-    let mut reader = BufReader::new(&mut stream);
-    let mut buf: String = String::new();
+fn handle_connection(stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
+    trace!("creating Reader and Writer");
+    let writer = stream.try_clone()?;
+    let reader = BufReader::new(stream);
 
-    let _ = reader.read_to_string(&mut buf)?;
+    trace!("Reading stream into buffer");
 
-    let resp: Resp = Resp::from_str(&buf)?;
-
-    let mut writer = BufWriter::new(&mut stream);
+    let resp = read_reader(reader)?;
 
     match resp {
         Resp::Array(arr) => {
             debug!("Received array request {:?}", arr);
             let cmd = read_cmd(arr);
-            exec_cmd(cmd, kvs, writer)?;
+            let resp = exec_cmd(cmd, kvs)?;
+            send_reply(resp, writer)?;
         }
         Resp::BulkString(str) => {
             debug!("Received BulkString request {:?}", str);
@@ -52,69 +58,81 @@ fn handle_connection(mut stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
             debug!("Received SimpleString request {:?}", str);
         }
         _ => {
-            let reply = Resp::Error("Invalid command".to_string()).to_string();
-            writer.write(reply.as_bytes())?;
-            debug!("Received non-array, non=-string request, sent invalid command error");
+            let reply = Resp::Error("Invalid command".to_string());
+            send_reply(reply, writer)?;
+            debug!("Received non-array, non-string request, sent invalid command error");
         }
     }
 
     Ok(())
 }
 
-fn exec_cmd(cmd: Option<Command>, kvs: &mut KvStore, mut writer: impl Write) -> Result<()>{
+fn send_reply(resp: Resp, mut writer: TcpStream) -> Result<()> {
+    writer.write(resp.to_string().as_bytes())?;
+    writer.flush()?;
+    debug!("Sent reply {}", resp);
+    Ok(())
+}
+
+fn read_reader(mut reader: BufReader<TcpStream>) -> Result<Resp> {
+    let mut buf = [0; 1024];
+
+    let n = reader.read(&mut buf)?;
+
+    debug!("Read buf = {:?}", from_utf8(&buf[..n])?);
+
+    trace!("Convert buffer into RESP");
+    let resp: Resp = Resp::from_bytes(&buf[..n])?;
+    Ok(resp)
+}
+
+fn exec_cmd(
+    cmd: Option<Command>,
+    kvs: &mut KvStore,
+) -> Result<Resp> {
     match cmd {
         Some(Command::Set { key, value }) => {
             debug!("Setting {} to {}", key, value);
             if let Ok(()) = kvs.set(key.clone(), value.clone()) {
                 debug!("Set {} to {} successfully", key, value);
-                let ok = Resp::SimpleString("OK".to_string()).to_string();
-                writer.write(ok.as_bytes())?;
+                let ok = Resp::SimpleString("OK".to_string());
+                Ok(ok)
             } else {
                 debug!("Failed to set {} to {}", key, value);
-                let err = Resp::Error(format!("SET {} {} failed", key, value)).to_string();
-                writer.write(err.as_bytes())?;
+                let err = Resp::Error(format!("SET {} {} failed", key, value));
+                Ok(err)
             }
-            Ok(())
         }
         Some(Command::Get { key }) => {
             debug!("Getting {}", key);
             if let Ok(Some(value)) = kvs.get(key.clone()) {
                 debug!("Got {} = {}", key, value);
-                let resp = Resp::BulkString(value).to_string();
-                writer.write(resp.as_bytes())?;
+                let resp = Resp::BulkString(value);
+                Ok(resp)
             } else {
                 debug!("Failed to get {}", key);
-                let err = Resp::Error(format!("GET {} failed", key)).to_string();
-                writer.write(err.as_bytes())?;
+                let err = Resp::Error(format!("GET {} failed", key));
+                Ok(err)
             }
-            Ok(())
         }
         Some(Command::Remove { key }) => {
             debug!("Removing {}", key);
             if let Ok(()) = kvs.remove(key.clone()) {
                 debug!("Removed {} successfully", key);
-                let ok = Resp::SimpleString("OK".to_string()).to_string();
-                writer.write(ok.as_bytes())?;
+                let ok = Resp::SimpleString("OK".to_string());
+                Ok(ok)
             } else {
                 debug!("Failed to remove {}", key);
-                let err = Resp::Error(format!("REMOVE {} failed", key)).to_string();
-                writer.write(err.as_bytes())?;
+                let err = Resp::Error(format!("REMOVE {} failed", key));
+                Ok(err)
             }
-            Ok(())
         }
         None => {
             debug!("Command was invalid");
-            let err = Resp::Error("Invalid command".to_string()).to_string();
-            writer.write(err.as_bytes())?;
-            Ok(())
+            let err = Resp::Error("Invalid command".to_string());
+            Ok(err)
         }
     }
-}
-
-enum Command {
-    Set { key: String, value: String },
-    Get { key: String },
-    Remove { key: String },
 }
 
 fn read_cmd(arr: Vec<Resp>) -> Option<Command> {
