@@ -1,3 +1,5 @@
+use std::io;
+
 use thiserror::Error;
 
 pub type Result<Resp> = std::result::Result<Resp, Error>;
@@ -30,5 +32,7 @@ pub enum Error {
     #[error("Expected to get an array")]
     ExpectedArray,
     #[error("Couldn't parse bytes to string")]
-    CantParseBytes( #[from] core::str::Utf8Error)
+    CantParseBytes( #[from] core::str::Utf8Error),
+    #[error("Reader read failed")]
+    ReaderFailed,
 }

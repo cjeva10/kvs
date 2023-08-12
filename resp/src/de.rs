@@ -1,5 +1,9 @@
 use crate::error::{Error, Result};
 use crate::Resp;
+use bstr::{ByteSlice, ByteVec};
+use std::collections::VecDeque;
+use std::io::BufRead;
+use std::str::from_utf8;
 
 impl Resp {
     /// Convert a string into a `Resp` object
@@ -29,6 +33,19 @@ impl Resp {
             Err(Error::TrailingCharacters)
         }
     }
+
+    ///
+    // pub fn from_reader(reader: impl BufRead) -> Result<Self> {
+    //     let mut deserializer = ReaderDeserializer::from_reader(reader);
+    //
+    //     let res = deserializer.deserialize_any()?;
+    //
+    //     if deserializer.input.is_empty() {
+    //         Ok(res)
+    //     } else {
+    //         Err(Error::TrailingCharacters)
+    //     }
+    // }
 
     /// Convert potentially multiple `Resp`s from a string
     ///
@@ -64,7 +81,7 @@ impl Resp {
         }
 
         if out.len() == 0 {
-            return Err(Error::Eof)
+            return Err(Error::Eof);
         }
 
         Ok(out)
@@ -72,15 +89,12 @@ impl Resp {
 
     /// Convert a byte array into a `Resp` object
     ///
-    /// Under the hood this just calls `Resp::from_str`, because
-    /// valid RESP must be a valid string
-    ///
     /// # Examples
     ///
     /// ```rust
     /// use crate::resp::Resp;
     ///
-    /// let input = "*2\r\n+hello\r\n+world\r\n";
+    /// let input = b"*2\r\n+hello\r\n+world\r\n";
     /// let resp = Resp::from_bytes(input).unwrap();
     /// let expected = Resp::Array(vec![
     ///     Resp::SimpleString("hello".to_owned()),
@@ -89,37 +103,93 @@ impl Resp {
     ///
     /// assert_eq!(resp, expected);
     /// ```
-    pub fn from_bytes(b: impl AsRef<[u8]>) -> Result<Self> {
-        let s = std::str::from_utf8(b.as_ref())?;
+    pub fn from_bytes(b: &[u8]) -> Result<Self> {
+        let mut deserializer = Deserializer::from_bytes(b);
 
-        Resp::from_str(s)
+        let res = deserializer.deserialize_any()?;
+
+        if deserializer.input.is_empty() {
+            Ok(res)
+        } else {
+            Err(Error::TrailingCharacters)
+        }
     }
 }
 
 struct Deserializer<'de> {
-    input: &'de str,
+    input: &'de [u8],
+}
+
+struct ReaderDeserializer<R: BufRead> {
+    reader: R,
+    input: VecDeque<u8>,
+}
+
+impl<R: BufRead> ReaderDeserializer<R> {
+    pub fn from_reader(reader: R) -> Self {
+        ReaderDeserializer {
+            reader,
+            input: VecDeque::new(),
+        }
+    }
+
+    fn peek_char(&mut self) -> Result<u8> {
+        if self.input.is_empty() {
+            let mut buf = [0; 128];
+            let n = match self.reader.read(&mut buf) {
+                Ok(n) => n,
+                Err(_) => return Err(Error::ReaderFailed),
+            };
+            for i in 0..n {
+                self.input.push_back(buf[i]);
+            }
+        }
+
+        self.input.get(0).copied().ok_or(Error::Eof)
+    }
+
+    fn next_char(&mut self) -> Result<u8> {
+        if self.input.is_empty() {
+            let mut buf = [0; 128];
+            let n = match self.reader.read(&mut buf) {
+                Ok(n) => n,
+                Err(_) => return Err(Error::ReaderFailed),
+            };
+            for i in 0..n {
+                self.input.push_back(buf[i]);
+            }
+        }
+
+        self.input.pop_front().ok_or(Error::Eof)
+    }
 }
 
 impl<'de> Deserializer<'de> {
     pub fn from_str(input: &'de str) -> Self {
+        Deserializer {
+            input: input.as_bytes(),
+        }
+    }
+
+    pub fn from_bytes(input: &'de [u8]) -> Self {
         Deserializer { input }
     }
 
-    fn peek_char(&self) -> Result<char> {
-        self.input.chars().next().ok_or(Error::Eof)
+    fn peek_char(&self) -> Result<u8> {
+        self.input.get(0).copied().ok_or(Error::Eof)
     }
 
-    fn next_char(&mut self) -> Result<char> {
+    fn next_char(&mut self) -> Result<u8> {
         let ch = self.peek_char()?;
-        self.input = &self.input[ch.len_utf8()..];
+        self.input = &self.input[1..];
         Ok(ch)
     }
 
     fn consume_crlf(&mut self) -> Result<()> {
-        if self.next_char()? != '\r' {
+        if self.next_char()? != b'\r' {
             return Err(Error::ExpectedCRLF);
         }
-        if self.next_char()? != '\n' {
+        if self.next_char()? != b'\n' {
             return Err(Error::ExpectedCRLF);
         }
 
@@ -128,18 +198,18 @@ impl<'de> Deserializer<'de> {
 
     fn parse_length(&mut self) -> Result<usize> {
         let mut int: usize = match self.next_char()? {
-            ch @ '0'..='9' => (ch as u8 - b'0') as usize,
+            ch @ b'0'..=b'9' => (ch - b'0') as usize,
             _ => {
                 return Err(Error::ExpectedInteger);
             }
         };
 
         loop {
-            match self.input.chars().next() {
-                Some(ch @ '0'..='9') => {
+            match self.input.get(0).copied() {
+                Some(ch @ b'0'..=b'9') => {
                     self.input = &self.input[1..];
                     int *= 10;
-                    int += (ch as u8 - b'0') as usize;
+                    int += (ch - b'0') as usize;
                 }
                 _ => {
                     return Ok(int);
@@ -161,29 +231,171 @@ trait DeserializeResp {
     fn deserialize_null_array(&mut self) -> Result<Resp>;
 }
 
+// impl<R: BufRead> DeserializeResp for ReaderDeserializer<R> {
+//     fn deserialize_any(&mut self) -> Result<Resp> {
+//         match self.peek_char()? {
+//             '$' => self.deserialize_bulk_string(),
+//             '+' => self.deserialize_simple_string(),
+//             '-' => self.deserialize_error(),
+//             '*' => self.deserialize_list(),
+//             ':' => self.deserialize_integer(),
+//             _ => Err(Error::InvalidPrefix),
+//         }
+//     }
+//
+//     fn deserialize_null(&mut self) -> Result<Resp> {
+//         if self.input.starts_with("$-1\r\n") {
+//             self.input = &self.input["$-1\r\n".len()..];
+//             println!("{}", self.input);
+//             return Ok(Resp::Null);
+//         }
+//         Err(Error::ExpectedNull)
+//     }
+//
+//     fn deserialize_error(&mut self) -> Result<Resp> {
+//         if self.next_char()? != '-' {
+//             return Err(Error::ExpectedError);
+//         }
+//
+//         match self.input.find("\r\n") {
+//             Some(len) => {
+//                 let s = &self.input[..len];
+//                 self.input = &self.input[len..];
+//                 self.consume_crlf()?;
+//                 Ok(Resp::Error(s.to_string()))
+//             }
+//             None => Err(Error::Eof),
+//         }
+//     }
+//     fn deserialize_simple_string(&mut self) -> Result<Resp> {
+//         if self.next_char()? != '+' {
+//             return Err(Error::ExpectedSimpleString);
+//         }
+//
+//         match self.input.find("\r\n") {
+//             Some(len) => {
+//                 let s = &self.input[..len];
+//                 self.input = &self.input[len..];
+//                 self.consume_crlf()?;
+//                 Ok(Resp::SimpleString(s.to_string()))
+//             }
+//             None => Err(Error::Eof),
+//         }
+//     }
+//
+//     fn deserialize_integer(&mut self) -> Result<Resp> {
+//         if self.next_char()? != ':' {
+//             return Err(Error::ExpectedInteger);
+//         }
+//
+//         let mut neg = false;
+//         if self.peek_char()? == '-' {
+//             self.next_char()?;
+//             neg = true;
+//         }
+//
+//         let mut int: i64 = match self.next_char()? {
+//             ch @ '0'..='9' => (ch as u8 - b'0') as i64,
+//             _ => {
+//                 return Err(Error::ExpectedInteger);
+//             }
+//         };
+//
+//         loop {
+//             match self.input.chars().next() {
+//                 Some(ch @ '0'..='9') => {
+//                     self.input = &self.input[1..];
+//                     int *= 10;
+//                     int += (ch as u8 - b'0') as i64;
+//                 }
+//                 _ => {
+//                     self.consume_crlf()?;
+//                     if neg {
+//                         return Ok(Resp::Integer(-int));
+//                     } else {
+//                         return Ok(Resp::Integer(int));
+//                     }
+//                 }
+//             }
+//         }
+//     }
+//
+//     fn deserialize_bulk_string(&mut self) -> Result<Resp> {
+//         if self.input.starts_with("$-1\r\n") {
+//             return self.deserialize_null();
+//         }
+//
+//         if self.next_char()? != '$' {
+//             return Err(Error::ExpectedBulkString);
+//         }
+//
+//         let len = self.parse_length()?;
+//
+//         self.consume_crlf()?;
+//
+//         let s = &self.input[..len];
+//         self.input = &self.input[len..];
+//
+//         self.consume_crlf()?;
+//
+//         Ok(Resp::BulkString(s.to_string()))
+//     }
+//
+//     fn deserialize_list(&mut self) -> Result<Resp> {
+//         if self.input.starts_with("*-1\r\n") {
+//             return self.deserialize_null_array();
+//         }
+//
+//         if self.next_char()? != '*' {
+//             return Err(Error::ExpectedArray);
+//         }
+//
+//         let len = self.parse_length()?;
+//
+//         self.consume_crlf()?;
+//
+//         let mut out: Vec<Resp> = Vec::new();
+//
+//         for _ in 0..len {
+//             let next = self.deserialize_any()?;
+//             out.push(next);
+//         }
+//
+//         Ok(Resp::Array(out))
+//     }
+//
+//     fn deserialize_null_array(&mut self) -> Result<Resp> {
+//         if self.input.starts_with("*-1\r\n") {
+//             self.input = &self.input["*-1\r\n".len()..];
+//             println!("{}", self.input);
+//             return Ok(Resp::NullArray);
+//         }
+//         Err(Error::ExpectedNullArray)
+//     }
+// }
+
 impl<'de> DeserializeResp for Deserializer<'de> {
     fn deserialize_any(&mut self) -> Result<Resp> {
         match self.peek_char()? {
-            '$' => self.deserialize_bulk_string(),
-            '+' => self.deserialize_simple_string(),
-            '-' => self.deserialize_error(),
-            '*' => self.deserialize_list(),
-            ':' => self.deserialize_integer(),
+            b'$' => self.deserialize_bulk_string(),
+            b'+' => self.deserialize_simple_string(),
+            b'-' => self.deserialize_error(),
+            b'*' => self.deserialize_list(),
+            b':' => self.deserialize_integer(),
             _ => Err(Error::InvalidPrefix),
         }
     }
 
     fn deserialize_null(&mut self) -> Result<Resp> {
-        if self.input.starts_with("$-1\r\n") {
-            self.input = &self.input["$-1\r\n".len()..];
-            println!("{}", self.input);
+        if self.input.starts_with(b"$-1\r\n") {
+            self.input = &self.input[b"$-1\r\n".len()..];
             return Ok(Resp::Null);
         }
         Err(Error::ExpectedNull)
     }
 
     fn deserialize_error(&mut self) -> Result<Resp> {
-        if self.next_char()? != '-' {
+        if self.next_char()? != b'-' {
             return Err(Error::ExpectedError);
         }
 
@@ -192,13 +404,13 @@ impl<'de> DeserializeResp for Deserializer<'de> {
                 let s = &self.input[..len];
                 self.input = &self.input[len..];
                 self.consume_crlf()?;
-                Ok(Resp::Error(s.to_string()))
+                Ok(Resp::Error(from_utf8(s)?.to_string()))
             }
             None => Err(Error::Eof),
         }
     }
     fn deserialize_simple_string(&mut self) -> Result<Resp> {
-        if self.next_char()? != '+' {
+        if self.next_char()? != b'+' {
             return Err(Error::ExpectedSimpleString);
         }
 
@@ -207,33 +419,33 @@ impl<'de> DeserializeResp for Deserializer<'de> {
                 let s = &self.input[..len];
                 self.input = &self.input[len..];
                 self.consume_crlf()?;
-                Ok(Resp::SimpleString(s.to_string()))
+                Ok(Resp::SimpleString(from_utf8(s)?.to_string()))
             }
             None => Err(Error::Eof),
         }
     }
 
     fn deserialize_integer(&mut self) -> Result<Resp> {
-        if self.next_char()? != ':' {
+        if self.next_char()? != b':' {
             return Err(Error::ExpectedInteger);
         }
 
         let mut neg = false;
-        if self.peek_char()? == '-' {
+        if self.peek_char()? == b'-' {
             self.next_char()?;
             neg = true;
         }
 
         let mut int: i64 = match self.next_char()? {
-            ch @ '0'..='9' => (ch as u8 - b'0') as i64,
+            ch @ b'0'..=b'9' => (ch - b'0') as i64,
             _ => {
                 return Err(Error::ExpectedInteger);
             }
         };
 
         loop {
-            match self.input.chars().next() {
-                Some(ch @ '0'..='9') => {
+            match self.input.get(0).copied() {
+                Some(ch @ b'0'..=b'9') => {
                     self.input = &self.input[1..];
                     int *= 10;
                     int += (ch as u8 - b'0') as i64;
@@ -251,11 +463,11 @@ impl<'de> DeserializeResp for Deserializer<'de> {
     }
 
     fn deserialize_bulk_string(&mut self) -> Result<Resp> {
-        if self.input.starts_with("$-1\r\n") {
+        if self.input.starts_with(b"$-1\r\n") {
             return self.deserialize_null();
         }
 
-        if self.next_char()? != '$' {
+        if self.next_char()? != b'$' {
             return Err(Error::ExpectedBulkString);
         }
 
@@ -268,15 +480,15 @@ impl<'de> DeserializeResp for Deserializer<'de> {
 
         self.consume_crlf()?;
 
-        Ok(Resp::BulkString(s.to_string()))
+        Ok(Resp::BulkString(from_utf8(s)?.to_string()))
     }
 
     fn deserialize_list(&mut self) -> Result<Resp> {
-        if self.input.starts_with("*-1\r\n") {
+        if self.input.starts_with(b"*-1\r\n") {
             return self.deserialize_null_array();
         }
 
-        if self.next_char()? != '*' {
+        if self.next_char()? != b'*' {
             return Err(Error::ExpectedArray);
         }
 
@@ -295,9 +507,8 @@ impl<'de> DeserializeResp for Deserializer<'de> {
     }
 
     fn deserialize_null_array(&mut self) -> Result<Resp> {
-        if self.input.starts_with("*-1\r\n") {
+        if self.input.starts_with(b"*-1\r\n") {
             self.input = &self.input["*-1\r\n".len()..];
-            println!("{}", self.input);
             return Ok(Resp::NullArray);
         }
         Err(Error::ExpectedNullArray)
@@ -426,7 +637,7 @@ mod tests {
     fn test_bad_bytes() {
         let shift_jis = b"\x82\xe6\x82\xa8\x82\xb1\x82\xbb";
         let res = Resp::from_bytes(shift_jis).err().unwrap();
-        let expected = "Couldn't parse bytes to string".to_owned();
+        let expected = "encountered an invalid prefix".to_owned();
 
         assert_eq!(res.to_string(), expected);
     }
