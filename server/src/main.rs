@@ -4,8 +4,8 @@ use log::{debug, trace};
 use resp::Resp;
 use std::{
     env::current_dir,
-    io::{BufReader, Write, Read},
-    net::{TcpListener, TcpStream}, str::from_utf8,
+    io::{Write, Read, BufReader, BufWriter},
+    net::{TcpListener, TcpStream},
 };
 
 enum Command {
@@ -18,10 +18,12 @@ fn main() -> Result<()> {
     env_logger::init();
 
     let path = current_dir()?;
+
     debug!("Opening KvStore at {}", path.to_str().unwrap());
     let mut kvs = KvStore::open(current_dir()?)?;
 
     let addr = "127.0.0.1:6379";
+
     debug!("Starting TcpListener at {}", addr);
     let listener = TcpListener::bind(addr).unwrap();
 
@@ -37,7 +39,8 @@ fn main() -> Result<()> {
 
 fn handle_connection(stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
     trace!("creating Reader and Writer");
-    let writer = stream.try_clone()?;
+
+    let writer = BufWriter::new(stream.try_clone()?);
     let reader = BufReader::new(stream);
 
     trace!("Reading stream into buffer");
@@ -67,32 +70,24 @@ fn handle_connection(stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
     Ok(())
 }
 
-fn send_reply(resp: Resp, mut writer: TcpStream) -> Result<()> {
+fn send_reply(resp: Resp, mut writer: impl Write) -> Result<()> {
     writer.write(resp.to_string().as_bytes())?;
     writer.flush()?;
     debug!("Sent reply {}", resp);
     Ok(())
 }
 
-fn read_reader(mut reader: BufReader<TcpStream>) -> Result<Resp> {
-    let mut buf = [0; 1024];
-
-    let n = reader.read(&mut buf)?;
-
-    debug!("Read buf = {:?}", from_utf8(&buf[..n])?);
-
+fn read_reader(reader: impl Read) -> Result<Resp> {
     trace!("Convert buffer into RESP");
-    let resp: Resp = Resp::from_bytes(&buf[..n])?;
+    let resp: Resp = Resp::from_reader(reader)?;
     Ok(resp)
 }
 
-fn exec_cmd(
-    cmd: Option<Command>,
-    kvs: &mut KvStore,
-) -> Result<Resp> {
+fn exec_cmd(cmd: Option<Command>, kvs: &mut KvStore) -> Result<Resp> {
     match cmd {
         Some(Command::Set { key, value }) => {
-            debug!("Setting {} to {}", key, value);
+            debug!("Setting {} to {}", &key, &value);
+
             if let Ok(()) = kvs.set(key.clone(), value.clone()) {
                 debug!("Set {} to {} successfully", key, value);
                 let ok = Resp::SimpleString("OK".to_string());
