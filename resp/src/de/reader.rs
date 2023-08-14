@@ -1,5 +1,4 @@
 use crate::{de::ParseResp, Error, Resp, Result};
-use log::{debug, trace};
 use std::{collections::VecDeque, io::Read, str::from_utf8};
 
 trait StartsWith {
@@ -29,33 +28,6 @@ impl<R: Read> ReaderParser<R> {
 
     pub fn is_buf_empty(&self) -> bool {
         self.buf.is_empty()
-    } 
-
-    pub fn is_empty(&mut self) -> Result<bool> {
-        trace!("Checking if buffer is empty");
-        if !self.is_buf_empty() {
-            return Ok(false);
-        }
-
-        trace!("Buffer is empty!");
-        let mut buf = [0; 128];
-        trace!("Checking reader for additional bytes");
-        let n = match self.reader.read(&mut buf) {
-            Ok(n) => {
-                debug!("Found n = {} bytes", n);
-                n
-            },
-            Err(_) => {
-                debug!("Reading failed");
-                return Err(Error::ReaderFailed)
-            },
-        };
-
-        if n > 0 {
-            Ok(false)
-        } else {
-            Ok(true)
-        }
     }
 
     fn peek_char(&mut self) -> Result<u8> {
@@ -324,7 +296,7 @@ mod tests {
             assert_eq!(h, input[i]);
         }
 
-        assert!(deserializer.is_empty().unwrap());
+        assert!(deserializer.is_buf_empty());
     }
 
     #[test]
