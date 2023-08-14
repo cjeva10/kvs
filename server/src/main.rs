@@ -98,64 +98,17 @@ fn handle_connection(stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
     Ok(())
 }
 
-fn send_reply(resp: Resp, mut writer: impl Write) -> Result<()> {
-    writer.write(resp.to_string().as_bytes())?;
-    writer.flush()?;
-    trace!("Sent reply {}", resp);
-    Ok(())
-}
-
 fn read_reader(reader: impl Read) -> Result<Resp> {
     trace!("Convert buffer into RESP");
     let resp: Resp = Resp::from_reader(reader)?;
     Ok(resp)
 }
 
-fn exec_cmd(cmd: Option<Command>, kvs: &mut KvStore) -> Result<Resp> {
-    match cmd {
-        Some(Command::Set { key, value }) => {
-            debug!("Setting {} to {}", &key, &value);
-
-            if let Ok(()) = kvs.set(key.clone(), value.clone()) {
-                debug!("Set {} to {} successfully", key, value);
-                let ok = Resp::SimpleString("OK".to_string());
-                Ok(ok)
-            } else {
-                debug!("Failed to set {} to {}", key, value);
-                let err = Resp::Error(format!("SET {} {} failed", key, value));
-                Ok(err)
-            }
-        }
-        Some(Command::Get { key }) => {
-            debug!("Getting {}", key);
-            if let Ok(Some(value)) = kvs.get(key.clone()) {
-                debug!("Got {} = {}", key, value);
-                let resp = Resp::BulkString(value);
-                Ok(resp)
-            } else {
-                debug!("Failed to get {}", key);
-                let err = Resp::Error(format!("GET {} failed", key));
-                Ok(err)
-            }
-        }
-        Some(Command::Remove { key }) => {
-            debug!("Removing {}", key);
-            if let Ok(()) = kvs.remove(key.clone()) {
-                debug!("Removed {} successfully", key);
-                let ok = Resp::SimpleString("OK".to_string());
-                Ok(ok)
-            } else {
-                debug!("Failed to remove {}", key);
-                let err = Resp::Error(format!("REMOVE {} failed", key));
-                Ok(err)
-            }
-        }
-        None => {
-            debug!("Command was invalid");
-            let err = Resp::Error("Invalid command".to_string());
-            Ok(err)
-        }
-    }
+fn send_reply(resp: Resp, mut writer: impl Write) -> Result<()> {
+    writer.write(resp.to_string().as_bytes())?;
+    writer.flush()?;
+    trace!("Sent reply {}", resp);
+    Ok(())
 }
 
 fn read_cmd(arr: Vec<Resp>) -> Option<Command> {
@@ -216,3 +169,51 @@ fn read_cmd(arr: Vec<Resp>) -> Option<Command> {
         }
     }
 }
+
+fn exec_cmd(cmd: Option<Command>, kvs: &mut KvStore) -> Result<Resp> {
+    match cmd {
+        Some(Command::Set { key, value }) => {
+            debug!("Setting {} to {}", &key, &value);
+
+            if let Ok(()) = kvs.set(key.clone(), value.clone()) {
+                debug!("Set {} to {} successfully", key, value);
+                let ok = Resp::SimpleString("OK".to_string());
+                Ok(ok)
+            } else {
+                debug!("Failed to set {} to {}", key, value);
+                let err = Resp::Error(format!("SET {} {} failed", key, value));
+                Ok(err)
+            }
+        }
+        Some(Command::Get { key }) => {
+            debug!("Getting {}", key);
+            if let Ok(Some(value)) = kvs.get(key.clone()) {
+                debug!("Got {} = {}", key, value);
+                let resp = Resp::BulkString(value);
+                Ok(resp)
+            } else {
+                debug!("Failed to get {}", key);
+                let err = Resp::Error(format!("GET {} failed", key));
+                Ok(err)
+            }
+        }
+        Some(Command::Remove { key }) => {
+            debug!("Removing {}", key);
+            if let Ok(()) = kvs.remove(key.clone()) {
+                debug!("Removed {} successfully", key);
+                let ok = Resp::SimpleString("OK".to_string());
+                Ok(ok)
+            } else {
+                debug!("Failed to remove {}", key);
+                let err = Resp::Error(format!("REMOVE {} failed", key));
+                Ok(err)
+            }
+        }
+        None => {
+            debug!("Command was invalid");
+            let err = Resp::Error("Invalid command".to_string());
+            Ok(err)
+        }
+    }
+}
+
