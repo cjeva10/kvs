@@ -5,7 +5,6 @@ use resp::Resp;
 use std::{
     io::{BufReader, BufWriter, Read, Write},
     net::TcpStream,
-    str::from_utf8,
 };
 
 #[derive(Parser)]
@@ -55,8 +54,8 @@ fn main() -> Result<()> {
     let reader = TcpStream::connect(host).expect("Failed to connect to Tcp host");
     let writer = reader.try_clone()?;
 
-    let writer = BufWriter::new(writer);
     let reader = BufReader::new(reader);
+    let writer = BufWriter::new(writer);
 
     send_command(args.command, writer)?;
 
@@ -102,6 +101,7 @@ fn send_command(command: Command, mut writer: BufWriter<TcpStream>) -> Result<()
         Command::Ping => {
             let ping = Resp::SimpleString("PING".to_owned());
             debug!("Sending PING");
+
             writer.write_all(ping.to_string().as_bytes())?;
             debug!("Sent PING");
         }
@@ -112,16 +112,10 @@ fn send_command(command: Command, mut writer: BufWriter<TcpStream>) -> Result<()
     Ok(())
 }
 
-fn read_response(mut reader: BufReader<TcpStream>) -> Result<()> {
-    let mut response = [0; 1024];
-
+fn read_response(reader: impl Read) -> Result<()> {
     debug!("Reading reply");
 
-    let n = reader.read(&mut response)?;
-
-    debug!("Read response into buffer: {}", from_utf8(&response)?);
-
-    let resp: Resp = Resp::from_bytes(&response[..n])?;
+    let resp: Resp = Resp::from_reader(reader)?;
 
     debug!("Converted response into RESP");
 
