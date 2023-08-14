@@ -1,11 +1,13 @@
 use crate::{Error, Resp, Result};
-use std::io::BufRead;
+use std::io::Read;
 
 mod byte;
 mod reader;
 
 use byte::ByteParser;
 use reader::ReaderParser;
+
+use log::debug;
 
 impl Resp {
     /// Convert a string into a `Resp` object
@@ -52,14 +54,19 @@ impl Resp {
     ///
     /// assert_eq!(resp, expected);
     /// ```
-    pub fn from_reader(reader: impl BufRead) -> Result<Self> {
+    pub fn from_reader(reader: impl Read) -> Result<Self> {
         let mut deserializer = ReaderParser::from_reader(reader);
 
         let res = deserializer.parse_any()?;
 
-        if deserializer.is_empty()? {
+        debug!("Parsed result = {:?}", res);
+
+        // check just that the buffer is empty because a read could block the thread indefinitely
+        if deserializer.is_buf_empty() {
+            debug!("Deserializer buffer is empty, returning");
             Ok(res)
         } else {
+            debug!("Deserializer buffer is not empty, failing");
             Err(Error::TrailingCharacters)
         }
     }

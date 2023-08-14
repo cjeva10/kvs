@@ -1,4 +1,5 @@
 use crate::{de::ParseResp, Error, Resp, Result};
+use log::{debug, trace};
 use std::{collections::VecDeque, io::Read, str::from_utf8};
 
 trait StartsWith {
@@ -15,26 +16,39 @@ impl StartsWith for VecDeque<u8> {
 
 pub struct ReaderParser<R: Read> {
     reader: R,
-    input: VecDeque<u8>,
+    buf: VecDeque<u8>,
 }
 
 impl<R: Read> ReaderParser<R> {
     pub fn from_reader(reader: R) -> Self {
         ReaderParser {
             reader,
-            input: VecDeque::new(),
+            buf: VecDeque::new(),
         }
     }
 
+    pub fn is_buf_empty(&self) -> bool {
+        self.buf.is_empty()
+    } 
+
     pub fn is_empty(&mut self) -> Result<bool> {
-        if !self.input.is_empty() {
+        trace!("Checking if buffer is empty");
+        if !self.is_buf_empty() {
             return Ok(false);
         }
 
+        trace!("Buffer is empty!");
         let mut buf = [0; 128];
+        trace!("Checking reader for additional bytes");
         let n = match self.reader.read(&mut buf) {
-            Ok(n) => n,
-            Err(_) => return Err(Error::ReaderFailed),
+            Ok(n) => {
+                debug!("Found n = {} bytes", n);
+                n
+            },
+            Err(_) => {
+                debug!("Reading failed");
+                return Err(Error::ReaderFailed)
+            },
         };
 
         if n > 0 {
@@ -45,27 +59,21 @@ impl<R: Read> ReaderParser<R> {
     }
 
     fn peek_char(&mut self) -> Result<u8> {
-        if self.input.len() == 0 {
-            let mut buf = [0; 128];
-            let n = match self.reader.read(&mut buf) {
-                Ok(n) => n,
-                Err(_) => return Err(Error::ReaderFailed),
-            };
-            if n == 0 {
-                return Err(Error::Eof);
-            }
-            for i in 0..n {
-                self.input.push_back(buf[i]);
-            }
-        }
+        self.fill_buf()?;
 
-        Ok(self.input.front().copied().unwrap())
+        Ok(self.buf.front().copied().unwrap())
     }
 
     fn next_char(&mut self) -> Result<u8> {
-        if self.input.len() == 0 {
-            let mut buf = [0; 128];
-            let n = match self.reader.read(&mut buf) {
+        self.fill_buf()?;
+
+        Ok(self.buf.pop_front().unwrap())
+    }
+
+    fn fill_buf(&mut self) -> Result<()> {
+        if self.buf.len() == 0 {
+            let mut tmp = [0; 128];
+            let n = match self.reader.read(&mut tmp) {
                 Ok(n) => n,
                 Err(_) => return Err(Error::ReaderFailed),
             };
@@ -73,11 +81,11 @@ impl<R: Read> ReaderParser<R> {
                 return Err(Error::Eof);
             }
             for i in 0..n {
-                self.input.push_back(buf[i]);
+                self.buf.push_back(tmp[i]);
             }
         }
 
-        Ok(self.input.pop_front().unwrap())
+        Ok(())
     }
 
     fn consume_crlf(&mut self) -> Result<()> {
@@ -128,15 +136,15 @@ impl<R: Read> ParseResp for ReaderParser<R> {
     }
 
     fn parse_null(&mut self) -> Result<Resp> {
-        self.peek_char()?;
+        let expected = b"$-1\r\n";
 
-        if self.input.starts_with(b"$-1\r\n") {
-            for _ in 0..b"$-1\r\n".len() {
-                self.next_char()?;
+        for b in expected {
+            if self.next_char()? != *b {
+                return Err(Error::ExpectedNull);
             }
-            return Ok(Resp::Null);
         }
-        Err(Error::ExpectedNull)
+
+        Ok(Resp::Null)
     }
 
     fn parse_error(&mut self) -> Result<Resp> {
@@ -218,7 +226,9 @@ impl<R: Read> ParseResp for ReaderParser<R> {
     }
 
     fn parse_bulk_string(&mut self) -> Result<Resp> {
-        if self.input.starts_with(b"$-1\r\n") {
+        self.peek_char()?;
+
+        if self.buf.starts_with(b"$-1\r\n") {
             return self.parse_null();
         }
 
@@ -230,7 +240,7 @@ impl<R: Read> ParseResp for ReaderParser<R> {
 
         self.consume_crlf()?;
 
-        let b: Vec<u8> = self.input.drain(..len).collect();
+        let b: Vec<u8> = self.buf.drain(..len).collect();
 
         self.consume_crlf()?;
 
@@ -238,7 +248,7 @@ impl<R: Read> ParseResp for ReaderParser<R> {
     }
 
     fn parse_array(&mut self) -> Result<Resp> {
-        if self.input.starts_with(b"*-1\r\n") {
+        if self.buf.starts_with(b"*-1\r\n") {
             return self.parse_null_array();
         }
 
@@ -261,7 +271,7 @@ impl<R: Read> ParseResp for ReaderParser<R> {
     }
 
     fn parse_null_array(&mut self) -> Result<Resp> {
-        if self.input.starts_with(b"*-1\r\n") {
+        if self.buf.starts_with(b"*-1\r\n") {
             for _ in 0..b"*-1\r\n".len() {
                 self.next_char()?;
             }
@@ -310,7 +320,7 @@ mod tests {
         for i in 0..b"hello world\n".len() {
             let h: u8 = deserializer.next_char().unwrap();
 
-            assert_eq!(deserializer.input, input[i + 1..].to_owned());
+            assert_eq!(deserializer.buf, input[i + 1..].to_owned());
             assert_eq!(h, input[i]);
         }
 
