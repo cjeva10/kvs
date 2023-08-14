@@ -1,4 +1,4 @@
-use crate::{de::RespParser, Error, Resp, Result};
+use crate::{de::ParseResp, Error, Resp, Result};
 use bstr::ByteSlice;
 use std::str::from_utf8;
 
@@ -65,13 +65,13 @@ impl<'de> ByteParser<'de> {
     }
 }
 
-impl<'de> RespParser for ByteParser<'de> {
+impl<'de> ParseResp for ByteParser<'de> {
     fn parse_any(&mut self) -> Result<Resp> {
         match self.peek_char()? {
             b'$' => self.parse_bulk_string(),
             b'+' => self.parse_simple_string(),
             b'-' => self.parse_error(),
-            b'*' => self.parse_list(),
+            b'*' => self.parse_array(),
             b':' => self.parse_integer(),
             _ => Err(Error::InvalidPrefix),
         }
@@ -174,7 +174,7 @@ impl<'de> RespParser for ByteParser<'de> {
         Ok(Resp::BulkString(from_utf8(s)?.to_string()))
     }
 
-    fn parse_list(&mut self) -> Result<Resp> {
+    fn parse_array(&mut self) -> Result<Resp> {
         if self.input.starts_with(b"*-1\r\n") {
             return self.parse_null_array();
         }
@@ -203,5 +203,208 @@ impl<'de> RespParser for ByteParser<'de> {
             return Ok(Resp::NullArray);
         }
         Err(Error::ExpectedNullArray)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Error, Resp};
+
+    #[test]
+    fn test_parse_bulk_string() {
+        let s = "$5\r\nhello\r\n";
+        let res = Resp::from_str(s).unwrap();
+        let expected = Resp::BulkString("hello".to_owned());
+
+        assert_eq!(res, expected);
+
+        let s = b"$5\r\nhello\r\n";
+        let res = Resp::from_bytes(s).unwrap();
+        let expected = Resp::BulkString("hello".to_owned());
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_parse_null() {
+        let input = "$-1\r\n";
+        let res = Resp::from_str(input).unwrap();
+        let expected = Resp::Null;
+
+        assert_eq!(res, expected);
+
+        let input = b"$-1\r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::Null;
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_parse_null_array() {
+        let input = "*-1\r\n";
+        let res = Resp::from_str(input).unwrap();
+        let expected = Resp::NullArray;
+
+        assert_eq!(res, expected);
+
+        let input = b"*-1\r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::NullArray;
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_parse_simple_string() {
+        let input = "+hello\r\n";
+        let res = Resp::from_str(input).unwrap();
+        let expected = Resp::SimpleString("hello".to_owned());
+
+        assert_eq!(res, expected);
+
+        let input = b"+hello\r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::SimpleString("hello".to_owned());
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_parse_integer() {
+        let pos = ":10\r\n";
+        let res = Resp::from_str(pos).unwrap();
+        let expected = Resp::Integer(10);
+
+        assert_eq!(res, expected);
+
+        let neg = ":-10\r\n";
+        let res = Resp::from_str(neg).unwrap();
+        let expected = Resp::Integer(-10);
+
+        assert_eq!(res, expected);
+
+        let pos = b":10\r\n";
+        let res = Resp::from_bytes(pos).unwrap();
+        let expected = Resp::Integer(10);
+
+        assert_eq!(res, expected);
+
+        let neg = b":-10\r\n";
+        let res = Resp::from_bytes(neg).unwrap();
+        let expected = Resp::Integer(-10);
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_parse_error() {
+        let input = "-ERR error\r\n";
+        let res = Resp::from_str(input).unwrap();
+        let expected = Resp::Error("ERR error".to_owned());
+
+        assert_eq!(res, expected);
+
+        let input = b"-ERR error\r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::Error("ERR error".to_owned());
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_parse_list() {
+        let input = "*2\r\n+hello\r\n+world\r\n";
+        let res = Resp::from_str(input).unwrap();
+        let expected = Resp::Array(vec![
+            Resp::SimpleString("hello".to_owned()),
+            Resp::SimpleString("world".to_owned()),
+        ]);
+
+        assert_eq!(res, expected);
+
+        let input = b"*2\r\n+hello\r\n+world\r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::Array(vec![
+            Resp::SimpleString("hello".to_owned()),
+            Resp::SimpleString("world".to_owned()),
+        ]);
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_parse_nested_list() {
+        let input = "*2\r\n*2\r\n+hello\r\n+world\r\n:10\r\n";
+        let res = Resp::from_str(input).unwrap();
+        let expected = Resp::Array(vec![
+            Resp::Array(vec![
+                Resp::SimpleString("hello".to_owned()),
+                Resp::SimpleString("world".to_owned()),
+            ]),
+            Resp::Integer(10),
+        ]);
+
+        assert_eq!(res, expected);
+
+        let input = b"*2\r\n*2\r\n+hello\r\n+world\r\n:10\r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::Array(vec![
+            Resp::Array(vec![
+                Resp::SimpleString("hello".to_owned()),
+                Resp::SimpleString("world".to_owned()),
+            ]),
+            Resp::Integer(10),
+        ]);
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_weird_characters() {
+        let input = "++//$$-+*\n\t\n !@#$%^&*()_\\  \r\n";
+        let res = Resp::from_str(input).unwrap();
+        let expected = Resp::SimpleString("+//$$-+*\n\t\n !@#$%^&*()_\\  ".to_owned());
+
+        assert_eq!(res, expected);
+
+        let input = b"++//$$-+*\n\t\n !@#$%^&*()_\\  \r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::SimpleString("+//$$-+*\n\t\n !@#$%^&*()_\\  ".to_owned());
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_invalid_prefix() {
+        let input = "bad";
+        let res = Resp::from_str(input).err().unwrap();
+        let expected = Error::InvalidPrefix;
+
+        assert_eq!(res, expected);
+
+        let input = b"bad";
+        let res = Resp::from_bytes(input).err().unwrap();
+        let expected = Error::InvalidPrefix;
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_parse_bytes() {
+        let bytes = b"+hello world\r\n";
+        let res = Resp::from_bytes(bytes).unwrap();
+        let expected = Resp::SimpleString("hello world".to_owned());
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_bad_bytes() {
+        let shift_jis = b"\x82\xe6\x82\xa8\x82\xb1\x82\xbb";
+        let res = Resp::from_bytes(shift_jis).err().unwrap();
+        let expected = "encountered an invalid prefix".to_owned();
+
+        assert_eq!(res.to_string(), expected);
     }
 }
