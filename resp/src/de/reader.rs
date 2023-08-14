@@ -231,7 +231,6 @@ impl<R: Read> ParseResp for ReaderParser<R> {
         }
 
         let len = self.parse_length()?;
-        println!("len = {}", len);
 
         self.consume_crlf()?;
 

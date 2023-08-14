@@ -1,5 +1,3 @@
-use std::io;
-
 use thiserror::Error;
 
 pub type Result<Resp> = std::result::Result<Resp, Error>;
