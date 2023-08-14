@@ -59,6 +59,15 @@ fn handle_connection(stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
         }
         Resp::SimpleString(str) => {
             debug!("Received SimpleString request {:?}", str);
+            if str != "PING" {
+                debug!("Command {} is invalid", str);
+                let reply = Resp::Error("Invalid command".to_string());
+                send_reply(reply, writer)?;
+            } else {
+                debug!("Received ping, ponging");
+                let reply = Resp::SimpleString("PONG".to_string());
+                send_reply(reply, writer)?;
+            }
         }
         _ => {
             let reply = Resp::Error("Invalid command".to_string());
