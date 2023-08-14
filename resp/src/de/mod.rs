@@ -124,7 +124,7 @@ impl Resp {
     }
 }
 
-/// Defines methods for parsing a `Resp` object
+/// Defines required methods for parsing a `Resp` object
 trait RespParser {
     fn parse_any(&mut self) -> Result<Resp>;
     fn parse_simple_string(&mut self) -> Result<Resp>;
