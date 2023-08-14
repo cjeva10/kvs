@@ -3,10 +3,10 @@ use crate::Resp;
 use std::io::BufRead;
 
 mod reader;
-mod string;
+mod byte;
 
 use reader::ReaderDeserializer;
-use string::Deserializer;
+use byte::ByteParser;
 
 impl Resp {
     /// Convert a string into a `Resp` object
@@ -26,7 +26,7 @@ impl Resp {
     /// assert_eq!(resp, expected);
     /// ```
     pub fn from_str(s: &str) -> Result<Self> {
-        let mut deserializer = Deserializer::from_str(s);
+        let mut deserializer = ByteParser::from_str(s);
 
         let res = deserializer.parse_any()?;
 
@@ -80,7 +80,7 @@ impl Resp {
     pub fn vec_from_str(s: &str) -> Result<Vec<Self>> {
         let mut out = Vec::new();
 
-        let mut deserializer = Deserializer::from_str(s);
+        let mut deserializer = ByteParser::from_str(s);
 
         while !deserializer.is_empty() {
             let res = deserializer.parse_any()?;
@@ -112,7 +112,7 @@ impl Resp {
     /// assert_eq!(resp, expected);
     /// ```
     pub fn from_bytes(b: &[u8]) -> Result<Self> {
-        let mut deserializer = Deserializer::from_bytes(b);
+        let mut deserializer = ByteParser::from_bytes(b);
 
         let res = deserializer.parse_any()?;
 
@@ -147,12 +147,24 @@ mod tests {
         let expected = Resp::BulkString("hello".to_owned());
 
         assert_eq!(res, expected);
+
+        let s = b"$5\r\nhello\r\n";
+        let res = Resp::from_bytes(s).unwrap();
+        let expected = Resp::BulkString("hello".to_owned());
+
+        assert_eq!(res, expected);
     }
 
     #[test]
     fn test_parse_null() {
         let input = "$-1\r\n";
         let res = Resp::from_str(input).unwrap();
+        let expected = Resp::Null;
+
+        assert_eq!(res, expected);
+
+        let input = b"$-1\r\n";
+        let res = Resp::from_bytes(input).unwrap();
         let expected = Resp::Null;
 
         assert_eq!(res, expected);
@@ -165,12 +177,24 @@ mod tests {
         let expected = Resp::NullArray;
 
         assert_eq!(res, expected);
+
+        let input = b"*-1\r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::NullArray;
+
+        assert_eq!(res, expected);
     }
 
     #[test]
     fn test_parse_simple_string() {
         let input = "+hello\r\n";
         let res = Resp::from_str(input).unwrap();
+        let expected = Resp::SimpleString("hello".to_owned());
+
+        assert_eq!(res, expected);
+
+        let input = b"+hello\r\n";
+        let res = Resp::from_bytes(input).unwrap();
         let expected = Resp::SimpleString("hello".to_owned());
 
         assert_eq!(res, expected);
@@ -189,6 +213,18 @@ mod tests {
         let expected = Resp::Integer(-10);
 
         assert_eq!(res, expected);
+
+        let pos = b":10\r\n";
+        let res = Resp::from_bytes(pos).unwrap();
+        let expected = Resp::Integer(10);
+
+        assert_eq!(res, expected);
+
+        let neg = b":-10\r\n";
+        let res = Resp::from_bytes(neg).unwrap();
+        let expected = Resp::Integer(-10);
+
+        assert_eq!(res, expected);
     }
 
     #[test]
@@ -198,12 +234,27 @@ mod tests {
         let expected = Resp::Error("ERR error".to_owned());
 
         assert_eq!(res, expected);
+
+        let input = b"-ERR error\r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::Error("ERR error".to_owned());
+
+        assert_eq!(res, expected);
     }
 
     #[test]
     fn test_parse_list() {
         let input = "*2\r\n+hello\r\n+world\r\n";
         let res = Resp::from_str(input).unwrap();
+        let expected = Resp::Array(vec![
+            Resp::SimpleString("hello".to_owned()),
+            Resp::SimpleString("world".to_owned()),
+        ]);
+
+        assert_eq!(res, expected);
+
+        let input = b"*2\r\n+hello\r\n+world\r\n";
+        let res = Resp::from_bytes(input).unwrap();
         let expected = Resp::Array(vec![
             Resp::SimpleString("hello".to_owned()),
             Resp::SimpleString("world".to_owned()),
@@ -225,6 +276,18 @@ mod tests {
         ]);
 
         assert_eq!(res, expected);
+
+        let input = b"*2\r\n*2\r\n+hello\r\n+world\r\n:10\r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::Array(vec![
+            Resp::Array(vec![
+                Resp::SimpleString("hello".to_owned()),
+                Resp::SimpleString("world".to_owned()),
+            ]),
+            Resp::Integer(10),
+        ]);
+
+        assert_eq!(res, expected);
     }
 
     #[test]
@@ -234,12 +297,24 @@ mod tests {
         let expected = Resp::SimpleString("+//$$-+*\n\t\n !@#$%^&*()_\\  ".to_owned());
 
         assert_eq!(res, expected);
+        
+        let input = b"++//$$-+*\n\t\n !@#$%^&*()_\\  \r\n";
+        let res = Resp::from_bytes(input).unwrap();
+        let expected = Resp::SimpleString("+//$$-+*\n\t\n !@#$%^&*()_\\  ".to_owned());
+
+        assert_eq!(res, expected);
     }
 
     #[test]
     fn test_invalid_prefix() {
         let input = "bad";
         let res = Resp::from_str(input).err().unwrap();
+        let expected = Error::InvalidPrefix;
+
+        assert_eq!(res, expected);
+
+        let input = b"bad";
+        let res = Resp::from_bytes(input).err().unwrap();
         let expected = Error::InvalidPrefix;
 
         assert_eq!(res, expected);
@@ -262,5 +337,4 @@ mod tests {
 
         assert_eq!(res.to_string(), expected);
     }
-
 }
