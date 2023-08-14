@@ -1,9 +1,5 @@
-use crate::de::ParseResp;
-use crate::Resp;
-use crate::{Error, Result};
-use std::collections::VecDeque;
-use std::io::Read;
-use std::str::from_utf8;
+use crate::{de::ParseResp, Error, Resp, Result};
+use std::{collections::VecDeque, io::Read, str::from_utf8};
 
 trait StartsWith {
     fn starts_with(&self, needle: &[u8]) -> bool;

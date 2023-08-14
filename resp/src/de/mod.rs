@@ -1,5 +1,4 @@
-use crate::error::{Error, Result};
-use crate::Resp;
+use crate::{Error, Resp, Result};
 use std::io::BufRead;
 
 mod byte;
