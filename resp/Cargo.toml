@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 bstr = "1.6.0"
+log = "0.4.20"
 thiserror = "1.0.44"
