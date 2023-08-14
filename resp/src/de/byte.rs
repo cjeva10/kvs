@@ -2,19 +2,19 @@ use crate::{de::RespParser, Error, Resp, Result};
 use bstr::ByteSlice;
 use std::str::from_utf8;
 
-pub struct Deserializer<'de> {
+pub struct ByteParser<'de> {
     input: &'de [u8],
 }
 
-impl<'de> Deserializer<'de> {
+impl<'de> ByteParser<'de> {
     pub fn from_str(input: &'de str) -> Self {
-        Deserializer {
+        ByteParser {
             input: input.as_bytes(),
         }
     }
 
     pub fn from_bytes(input: &'de [u8]) -> Self {
-        Deserializer { input }
+        ByteParser { input }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -65,7 +65,7 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-impl<'de> RespParser for Deserializer<'de> {
+impl<'de> RespParser for ByteParser<'de> {
     fn parse_any(&mut self) -> Result<Resp> {
         match self.peek_char()? {
             b'$' => self.parse_bulk_string(),
