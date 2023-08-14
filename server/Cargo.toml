@@ -11,3 +11,4 @@ eyre = "0.6.8"
 kvs = { version = "0.1.0", path = "../kvs" }
 log = "0.4.19"
 resp = { version = "0.1.0", path = "../resp" }
+tokio = { version = "1.31.0", features = ["full"] }

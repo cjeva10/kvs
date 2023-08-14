@@ -6,6 +6,8 @@ use std::{
     env::current_dir,
     io::{BufReader, BufWriter, Read, Write},
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream},
+    sync::{Arc, Mutex},
+    thread,
 };
 
 enum Command {
@@ -20,7 +22,7 @@ fn main() -> Result<()> {
     let path = current_dir()?;
 
     info!("Opening KvStore at {}", path.to_str().unwrap());
-    let mut kvs = KvStore::open(current_dir()?)?;
+    let kvs = Arc::new(Mutex::new(KvStore::open(current_dir()?)?));
 
     let addr = "127.0.0.1:6379";
 
@@ -38,23 +40,26 @@ fn main() -> Result<()> {
             }
         };
 
-        let peer = stream
-            .peer_addr()
-            .unwrap_or(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0000));
+        let kvs = kvs.clone();
+        thread::spawn(|| {
+            let peer = stream
+                .peer_addr()
+                .unwrap_or(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0000));
+            info!("Received request from {}", peer);
 
-        info!("Received request from {}", peer);
-        match handle_connection(stream, &mut kvs) {
-            Ok(()) => (),
-            Err(e) => {
-                error!("Connection handler for {} failed: {}", peer, e);
-            }
-        };
+            match handle_connection(stream, kvs) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Connection handler for {} failed: {}", peer, e);
+                }
+            };
+        });
     }
 
     Ok(())
 }
 
-fn handle_connection(stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
+fn handle_connection(stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> Result<()> {
     trace!("creating Reader and Writer");
 
     let writer = BufWriter::new(stream.try_clone()?);
@@ -164,18 +169,18 @@ fn read_cmd(arr: Vec<Resp>) -> Option<Command> {
             });
         }
         _ => {
-            debug!("Received invalid length command");
+            debug!("Command length not 2 or 3 invalid");
             None
         }
     }
 }
 
-fn exec_cmd(cmd: Option<Command>, kvs: &mut KvStore) -> Result<Resp> {
+fn exec_cmd(cmd: Option<Command>, kvs: Arc<Mutex<KvStore>>) -> Result<Resp> {
     match cmd {
         Some(Command::Set { key, value }) => {
             debug!("Setting {} to {}", &key, &value);
 
-            if let Ok(()) = kvs.set(key.clone(), value.clone()) {
+            if let Ok(()) = kvs.lock().unwrap().set(key.clone(), value.clone()) {
                 debug!("Set {} to {} successfully", key, value);
                 let ok = Resp::SimpleString("OK".to_string());
                 Ok(ok)
@@ -187,7 +192,7 @@ fn exec_cmd(cmd: Option<Command>, kvs: &mut KvStore) -> Result<Resp> {
         }
         Some(Command::Get { key }) => {
             debug!("Getting {}", key);
-            if let Ok(Some(value)) = kvs.get(key.clone()) {
+            if let Ok(Some(value)) = kvs.lock().unwrap().get(key.clone()) {
                 debug!("Got {} = {}", key, value);
                 let resp = Resp::BulkString(value);
                 Ok(resp)
@@ -199,7 +204,7 @@ fn exec_cmd(cmd: Option<Command>, kvs: &mut KvStore) -> Result<Resp> {
         }
         Some(Command::Remove { key }) => {
             debug!("Removing {}", key);
-            if let Ok(()) = kvs.remove(key.clone()) {
+            if let Ok(()) = kvs.lock().unwrap().remove(key.clone()) {
                 debug!("Removed {} successfully", key);
                 let ok = Resp::SimpleString("OK".to_string());
                 Ok(ok)
@@ -216,4 +221,3 @@ fn exec_cmd(cmd: Option<Command>, kvs: &mut KvStore) -> Result<Resp> {
         }
     }
 }
-
