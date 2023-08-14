@@ -451,7 +451,11 @@ impl<'de> DeserializeResp for Deserializer<'de> {
 
 #[cfg(test)]
 mod tests {
+    use std::{io::Cursor, str::from_utf8};
+
     use crate::{Error, Resp};
+
+    use super::ReaderDeserializer;
 
     #[test]
     fn test_deserialize_bulk_string() {
@@ -574,5 +578,31 @@ mod tests {
         let expected = "encountered an invalid prefix".to_owned();
 
         assert_eq!(res.to_string(), expected);
+    }
+
+    #[test]
+    fn test_reader_peek_char() {
+        let mut vec: Vec<u8> = Vec::from(b"hello world\n".to_owned());
+        let reader = Cursor::new(&mut vec);
+        
+        let mut deserializer = ReaderDeserializer::from_reader(reader);
+
+        let hello: Vec<u8> = deserializer.peek_char(5).unwrap();
+        assert_eq!(vec, b"hello world\n".to_owned());
+        assert_eq!(hello, Vec::from(b"hello".to_owned()));
+    }
+
+    #[test]
+    fn test_reader_next_char() {
+        let vec: Vec<u8> = Vec::from(b"hello world\n".to_owned());
+        let reader = Cursor::new(vec.clone());
+        
+        let mut deserializer = ReaderDeserializer::from_reader(reader);
+
+        let hello: Vec<u8> = deserializer.next_char(5).unwrap();
+
+        println!("{:?}", deserializer.input);
+        assert_eq!(deserializer.input, b" world\n".to_owned());
+        assert_eq!(hello, Vec::from(b"hello".to_owned()));
     }
 }
