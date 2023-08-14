@@ -1,11 +1,11 @@
 use eyre::Result;
 use kvs::KvStore;
-use log::{debug, trace};
+use log::{debug, error, info, trace};
 use resp::Resp;
 use std::{
     env::current_dir,
-    io::{Write, Read, BufReader, BufWriter},
-    net::{TcpListener, TcpStream},
+    io::{BufReader, BufWriter, Read, Write},
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream},
 };
 
 enum Command {
@@ -19,19 +19,36 @@ fn main() -> Result<()> {
 
     let path = current_dir()?;
 
-    debug!("Opening KvStore at {}", path.to_str().unwrap());
+    info!("Opening KvStore at {}", path.to_str().unwrap());
     let mut kvs = KvStore::open(current_dir()?)?;
 
     let addr = "127.0.0.1:6379";
 
-    debug!("Starting TcpListener at {}", addr);
+    info!("Starting TcpListener at {}", addr);
     let listener = TcpListener::bind(addr).unwrap();
 
     for stream in listener.incoming() {
         debug!("Received client request");
-        let stream = stream.unwrap();
 
-        handle_connection(stream, &mut kvs)?;
+        let stream = match stream {
+            Ok(stream) => stream,
+            Err(e) => {
+                error!("Failed to open stream: {}", e);
+                continue;
+            }
+        };
+
+        let peer = stream
+            .peer_addr()
+            .unwrap_or(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0000));
+
+        info!("Received request from {}", peer);
+        match handle_connection(stream, &mut kvs) {
+            Ok(()) => (),
+            Err(e) => {
+                error!("Connection handler for {} failed: {}", peer, e);
+            }
+        };
     }
 
     Ok(())
@@ -56,11 +73,13 @@ fn handle_connection(stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
         }
         Resp::BulkString(str) => {
             debug!("Received BulkString request {:?}", str);
+            let reply = Resp::Error("Invalid: BulkStrings not acceptable as commands".to_string());
+            send_reply(reply, writer)?;
         }
         Resp::SimpleString(str) => {
-            debug!("Received SimpleString request {:?}", str);
+            trace!("Received SimpleString request {:?}", str);
             if str != "PING" {
-                debug!("Command {} is invalid", str);
+                debug!("Command {} is invalid", Resp::SimpleString(str));
                 let reply = Resp::Error("Invalid command".to_string());
                 send_reply(reply, writer)?;
             } else {
@@ -82,7 +101,7 @@ fn handle_connection(stream: TcpStream, kvs: &mut KvStore) -> Result<()> {
 fn send_reply(resp: Resp, mut writer: impl Write) -> Result<()> {
     writer.write(resp.to_string().as_bytes())?;
     writer.flush()?;
-    debug!("Sent reply {}", resp);
+    trace!("Sent reply {}", resp);
     Ok(())
 }
 
