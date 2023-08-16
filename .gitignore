@@ -1,3 +1,4 @@
 /target
+kvs/*.log
 Cargo.lock
 server/data
