@@ -10,15 +10,16 @@ The client-server work implements roughly the specification in Project 3.
 
 So far, I've completed the following work.
 
- - Log-file structured storage.
- - Log compaction on threshold of dead data.
+ - Redis Serialization protocol (RESP) from-scratch for wire messages and database storage.
+ - Log-file structured storage using RESP encoded bytes.
+ - Automatic log compaction on threshold of dead data.
  - Asynchronous server and client pass messages over TCP (Tokio)
  - Asynchronous db access
  - Simple client CLI for sending messages to server.
- - Redis Serialization protocol from-scratch for wire messages.
- - Unit testing
+ - Unit testing for Redis Serialization crate.
 
 ## Roadmap
 
+ - Tests for server, client, and db crates.
  - Key sharding
  - Distributed consensus with Raft
