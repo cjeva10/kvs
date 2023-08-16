@@ -4,10 +4,12 @@ use log::{debug, error, info, trace};
 use resp::Resp;
 use std::{
     env::current_dir,
-    io::{BufReader, BufWriter, Read, Write},
-    net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{Arc, Mutex},
-    thread,
+};
+use tokio::{
+    io::{BufReader, BufWriter, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
 };
 
 enum Command {
@@ -16,7 +18,8 @@ enum Command {
     Remove { key: String },
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     env_logger::init();
 
     let mut path = current_dir()?;
@@ -28,75 +31,80 @@ fn main() -> Result<()> {
     let addr = "127.0.0.1:6379";
 
     info!("Starting TcpListener at {}", addr);
-    let listener = TcpListener::bind(addr).unwrap();
+    let listener = TcpListener::bind(addr)
+        .await
+        .expect(format!("Failed to bind TcpListener to {}", addr).as_str());
 
-    for stream in listener.incoming() {
+    loop {
         debug!("Received client request");
-
-        let stream = match stream {
-            Ok(stream) => stream,
+        let stream = match listener.accept().await {
+            Ok((stream, _)) => stream,
             Err(e) => {
                 error!("Failed to open stream: {}", e);
                 continue;
             }
         };
 
-        let kvs = kvs.clone();
-        thread::spawn(|| {
-            let peer = stream
-                .peer_addr()
-                .unwrap_or(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0000));
-            info!("Received request from {}", peer);
-
-            match handle_connection(stream, kvs) {
-                Ok(()) => (),
-                Err(e) => {
-                    error!("Connection handler for {} failed: {}", peer, e);
-                }
-            };
-        });
+        process(stream, kvs.clone()).await?;
     }
+}
+
+async fn process(stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> Result<()> {
+    tokio::spawn(async {
+        let peer = stream
+            .peer_addr()
+            .unwrap_or(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0000));
+        info!("Received request from {}", peer);
+
+        match handle_connection(stream, kvs).await {
+            Ok(()) => (),
+            Err(e) => {
+                error!("Connection handler for {} failed: {}", peer, e);
+            }
+        };
+    });
 
     Ok(())
 }
 
-fn handle_connection(stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> Result<()> {
+async fn handle_connection(mut stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> Result<()> {
     trace!("creating Reader and Writer");
 
-    let writer = BufWriter::new(stream.try_clone()?);
-    let reader = BufReader::new(stream);
+    let reader = BufReader::new(&mut stream);
 
     trace!("Reading stream into buffer");
 
-    let resp = read_reader(reader)?;
+    let resp = Resp::from_reader(reader).await?;
+
+    let writer = BufWriter::new(&mut stream);
 
     match resp {
         Resp::Array(arr) => {
             debug!("Received array request {:?}", arr);
             let cmd = read_cmd(arr);
             let resp = exec_cmd(cmd, kvs)?;
-            send_reply(resp, writer)?;
+            send_reply(resp, writer).await?;
         }
         Resp::BulkString(str) => {
             debug!("Received BulkString request {:?}", str);
             let reply = Resp::Error("Invalid: BulkStrings not acceptable as commands".to_string());
-            send_reply(reply, writer)?;
+            send_reply(reply, writer).await?;
         }
         Resp::SimpleString(str) => {
             trace!("Received SimpleString request {:?}", str);
             if str != "PING" {
                 debug!("Command {} is invalid", Resp::SimpleString(str));
                 let reply = Resp::Error("Invalid command".to_string());
-                send_reply(reply, writer)?;
+                send_reply(reply, writer).await?;
             } else {
                 debug!("Received ping, ponging");
                 let reply = Resp::SimpleString("PONG".to_string());
-                send_reply(reply, writer)?;
+                send_reply(reply, writer).await?;
             }
         }
         _ => {
             let reply = Resp::Error("Invalid command".to_string());
-            send_reply(reply, writer)?;
+            send_reply(reply, writer).await?;
             debug!("Received non-array, non-string request, sent invalid command error");
         }
     }
@@ -104,15 +112,8 @@ fn handle_connection(stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> Result<()> 
     Ok(())
 }
 
-fn read_reader(reader: impl Read) -> Result<Resp> {
-    trace!("Convert buffer into RESP");
-    let resp: Resp = Resp::from_reader(reader)?;
-    Ok(resp)
-}
-
-fn send_reply(resp: Resp, mut writer: impl Write) -> Result<()> {
-    writer.write(resp.to_string().as_bytes())?;
-    writer.flush()?;
+async fn send_reply<W: AsyncWriteExt + Unpin>(resp: Resp, mut writer: W) -> Result<()> {
+    writer.write(resp.to_string().as_bytes()).await?;
     trace!("Sent reply {}", resp);
     Ok(())
 }
