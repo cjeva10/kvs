@@ -46,13 +46,13 @@
 
 #[deny(missing_docs)]
 
-use crate::ser::SerializeResp;
 use std::fmt;
 
 mod de;
 mod error;
 mod ser;
 
+pub use ser::SerializeResp;
 pub use error::{Error, Result};
 
 /// Representation of a Redis serialized value
@@ -78,6 +78,33 @@ pub enum Resp {
 
 impl fmt::Display for Resp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.serialize())
+        write!(f, "{}", self.stringify())
+    }
+}
+
+impl Resp {
+    fn stringify(&self) -> String {
+        match self {
+            Resp::SimpleString(s) => s.to_string(),
+            Resp::BulkString(s) => s.to_string(),
+            Resp::Integer(int) => int.to_string(),
+            Resp::Error(s) => s.to_string(),
+            Resp::Array(list) => Self::stringify_list(list),
+            Resp::Null => "Null".to_string(),
+            Resp::NullArray => "NullArray".to_string(),
+        }
+    }
+
+    fn stringify_list(list: &Vec<Resp>) -> String {
+        let mut out = String::new();
+
+        out.push('[');
+        for l in list {
+            out.push_str(&l.stringify());
+            out.push(',');
+        }
+        out.push(']');
+
+        out
     }
 }

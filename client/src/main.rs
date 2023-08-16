@@ -1,10 +1,10 @@
 use clap::{Parser, Subcommand};
 use eyre::Result;
 use log::debug;
-use resp::Resp;
+use resp::{Resp, SerializeResp};
 use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
     net::TcpStream,
-    io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter}
 };
 
 #[derive(Parser)]
@@ -52,7 +52,9 @@ async fn main() -> Result<()> {
     let host = "localhost:6379";
     debug!("Connecting to server on {}", host);
 
-    let mut stream = TcpStream::connect(host).await.expect("Failed to connect to Tcp host");
+    let mut stream = TcpStream::connect(host)
+        .await
+        .expect("Failed to connect to Tcp host");
 
     let writer = BufWriter::new(&mut stream);
 
@@ -76,7 +78,7 @@ async fn send_command(command: Command, mut writer: impl AsyncWriteExt + Unpin) 
             ]);
 
             debug!("Sending SET {} {}", key, value);
-            writer.write_all(set.to_string().as_bytes()).await?;
+            writer.write_all(set.serialize().as_bytes()).await?;
             debug!("Sent SET {} {}", key, value);
         }
         Command::Get { key } => {
@@ -86,7 +88,7 @@ async fn send_command(command: Command, mut writer: impl AsyncWriteExt + Unpin) 
             ]);
 
             debug!("Sending GET {}", key);
-            writer.write_all(get.to_string().as_bytes()).await?;
+            writer.write_all(get.serialize().as_bytes()).await?;
             debug!("Sent GET {}", key);
         }
         Command::Remove { key } => {
@@ -96,14 +98,14 @@ async fn send_command(command: Command, mut writer: impl AsyncWriteExt + Unpin) 
             ]);
 
             debug!("Sending REMOVE {}", key);
-            writer.write_all(rm.to_string().as_bytes()).await?;
+            writer.write_all(rm.serialize().as_bytes()).await?;
             debug!("Sent REMOVE {}", key);
         }
         Command::Ping => {
             let ping = Resp::SimpleString("PING".to_owned());
             debug!("Sending PING");
 
-            writer.write_all(ping.to_string().as_bytes()).await?;
+            writer.write_all(ping.serialize().as_bytes()).await?;
             debug!("Sent PING");
         }
     }

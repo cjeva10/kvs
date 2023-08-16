@@ -1,14 +1,14 @@
 use eyre::Result;
 use kvs::KvStore;
 use log::{debug, error, info, trace};
-use resp::Resp;
+use resp::{Resp, SerializeResp};
 use std::{
     env::current_dir,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{Arc, Mutex},
 };
 use tokio::{
-    io::{BufReader, BufWriter, AsyncWriteExt},
+    io::{AsyncWriteExt, BufReader, BufWriter},
     net::{TcpListener, TcpStream},
 };
 
@@ -36,9 +36,11 @@ async fn main() -> Result<()> {
         .expect(format!("Failed to bind TcpListener to {}", addr).as_str());
 
     loop {
-        debug!("Received client request");
         let stream = match listener.accept().await {
-            Ok((stream, _)) => stream,
+            Ok((stream, addr)) => {
+                debug!("Received client request from {}", addr);
+                stream
+            }
             Err(e) => {
                 error!("Failed to open stream: {}", e);
                 continue;
@@ -113,7 +115,9 @@ async fn handle_connection(mut stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> R
 }
 
 async fn send_reply<W: AsyncWriteExt + Unpin>(resp: Resp, mut writer: W) -> Result<()> {
-    writer.write(resp.to_string().as_bytes()).await?;
+    writer.write(resp.serialize().as_bytes()).await?;
+    writer.flush().await?;
+
     trace!("Sent reply {}", resp);
     Ok(())
 }
