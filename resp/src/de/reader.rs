@@ -8,10 +8,17 @@ use std::{collections::VecDeque, io::Read, str::from_utf8};
 pub struct ReaderParser<R: Read> {
     reader: R,
     buf: VecDeque<u8>,
+    offset: usize,
 }
 
 pub struct ReaderParserIntoIter<R: Read> {
     inner: ReaderParser<R>,
+}
+
+impl<R: Read> ReaderParserIntoIter<R> {
+    pub fn byte_offset(&self) -> usize {
+        self.inner.offset
+    }
 }
 
 impl<R: Read> IntoIterator for ReaderParser<R> {
@@ -39,6 +46,7 @@ impl<R: Read> ReaderParser<R> {
         ReaderParser {
             reader,
             buf: VecDeque::new(),
+            offset: 0,
         }
     }
 
@@ -54,6 +62,8 @@ impl<R: Read> ReaderParser<R> {
 
     fn next_char(&mut self) -> Result<u8> {
         self.fill_buf()?;
+
+        self.offset += 1;
 
         Ok(self.buf.pop_front().unwrap())
     }
@@ -230,6 +240,7 @@ impl<R: Read> ParseResp for ReaderParser<R> {
         self.consume_crlf()?;
 
         let b: Vec<u8> = self.buf.drain(..len).collect();
+        self.offset += len;
 
         self.consume_crlf()?;
 
@@ -474,5 +485,30 @@ mod tests {
             Resp::Integer(10),
             Resp::Integer(10),
         ]));
+    }
+
+    #[test]
+    fn test_offset() {
+        let input = b"+hello\r\n:10\r\n*2\r\n$2\r\nRM\r\n$5\r\nhello\r\n";
+        let mut res = ReaderParser::from_reader(&input[..]).into_iter();
+
+        let mut expected = 0;
+
+        assert_eq!(res.byte_offset(), expected);
+
+        let _ = res.next().unwrap();
+        expected += b"+hello\r\n".len();
+
+        assert_eq!(res.byte_offset(), expected);
+
+        let _ = res.next().unwrap();
+        expected += b":10\r\n".len();
+
+        assert_eq!(res.byte_offset(), expected);
+
+        let _ = res.next().unwrap();
+        expected += "*2\r\n$2\r\nRM\r\n$5\r\nhello\r\n".len();
+
+        assert_eq!(res.byte_offset(), expected);
     }
 }

@@ -1,4 +1,4 @@
-use crate::{de::reader::ReaderParser, Error, Resp, Result};
+use crate::{Error, Resp, Result};
 use async_trait::async_trait;
 use std::{collections::VecDeque, io::Read};
 use tokio::io::AsyncReadExt;
@@ -11,6 +11,8 @@ use async_reader::AsyncReaderParser;
 use byte::ByteParser;
 
 use log::debug;
+
+pub use reader::ReaderParser;
 
 impl Resp {
     /// Convert a string into a `Resp` object

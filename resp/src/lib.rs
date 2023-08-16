@@ -67,6 +67,7 @@ mod error;
 mod ser;
 
 pub use ser::SerializeResp;
+pub use de::ReaderParser;
 pub use error::{Error, Result};
 
 /// Representation of a Redis serialized value
