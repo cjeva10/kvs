@@ -93,13 +93,13 @@ async fn send_command(command: Command, mut writer: impl AsyncWriteExt + Unpin) 
         }
         Command::Remove { key } => {
             let rm = Resp::Array(vec![
-                Resp::BulkString("REMOVE".to_string()),
+                Resp::BulkString("RM".to_string()),
                 Resp::BulkString(key.clone()),
             ]);
 
-            debug!("Sending REMOVE {}", key);
+            debug!("Sending RM {}", key);
             writer.write_all(rm.serialize().as_bytes()).await?;
-            debug!("Sent REMOVE {}", key);
+            debug!("Sent RM {}", key);
         }
         Command::Ping => {
             let ping = Resp::SimpleString("PING".to_owned());

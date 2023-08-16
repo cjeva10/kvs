@@ -138,8 +138,8 @@ fn read_cmd(arr: Vec<Resp>) -> Option<Command> {
                     key: key.to_string(),
                 });
             }
-            if name == "REMOVE" {
-                debug!("Got REMOVE {}", key);
+            if name == "RM" {
+                debug!("Got RM {}", key);
                 return Some(Command::Remove {
                     key: key.to_string(),
                 });
@@ -215,7 +215,7 @@ fn exec_cmd(cmd: Option<Command>, kvs: impl KvEngine) -> Result<Resp> {
                 Ok(ok)
             } else {
                 debug!("Failed to remove {}", key);
-                let err = Resp::Error(format!("REMOVE {} failed", key));
+                let err = Resp::Error(format!("RM {} failed", key));
                 Ok(err)
             }
         }
