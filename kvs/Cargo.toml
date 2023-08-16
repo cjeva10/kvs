@@ -10,8 +10,6 @@ clap = { version = "4.3.19", features = ["derive"] }
 eyre = "0.6.8"
 log = "0.4.20"
 resp = { version = "0.1.0", path = "../resp" }
-serde = { version = "1.0.183", features = ["derive"] }
-serde_json = "1.0.104"
 tempfile = "3.7.1"
 thiserror = "1.0.44"
 walkdir = "2.3.3"

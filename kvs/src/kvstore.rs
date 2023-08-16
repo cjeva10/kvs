@@ -1,6 +1,6 @@
 use crate::{KvEngine, KvsError, Result};
 use log::info;
-use serde::{Deserialize, Serialize};
+use resp::{Resp, SerializeResp};
 use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
@@ -23,7 +23,9 @@ impl KvStore {
     pub fn open(path: impl Into<PathBuf>) -> Result<Self> {
         let inner = InnerKvStore::open(path)?;
 
-        Ok(Self { inner: Arc::new(Mutex::new(inner)) })
+        Ok(Self {
+            inner: Arc::new(Mutex::new(inner)),
+        })
     }
 }
 
@@ -65,10 +67,65 @@ struct LogPointer {
     size: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
 enum LogCommand {
     Set { key: String, value: String },
     Rm { key: String },
+}
+
+impl TryFrom<Resp> for LogCommand {
+    type Error = KvsError;
+
+    fn try_from(resp: Resp) -> Result<Self> {
+        match resp {
+            Resp::Array(arr) => match arr.len() {
+                2 => {
+                    let Resp::BulkString(rm) = &arr[0] else { return Err(KvsError::ParseError)};
+                    let Resp::BulkString(key) = &arr[1] else { return Err(KvsError::ParseError)};
+
+                    if rm != "RM" {
+                        return Err(KvsError::ParseError);
+                    }
+
+                    Ok(LogCommand::Rm { key: key.to_string() })
+                }
+                3 => {
+                    let Resp::BulkString(set) = &arr[0] else { return Err(KvsError::ParseError)};
+                    let Resp::BulkString(key) = &arr[1] else { return Err(KvsError::ParseError)};
+                    let Resp::BulkString(value) = &arr[2] else { return Err(KvsError::ParseError)};
+
+                    if set != "SET" {
+                        return Err(KvsError::ParseError);
+                    }
+
+                    Ok(LogCommand::Set { key: key.to_string(), value: value.to_string() })
+                }
+                _ => Err(KvsError::ParseError)
+            },
+            _ => Err(KvsError::ParseError),
+        }
+    }
+}
+
+impl Into<Resp> for LogCommand {
+    fn into(self) -> Resp {
+        match self {
+            LogCommand::Rm { key } => {
+                Resp::Array(vec![
+                    Resp::BulkString("RM".to_string()),
+                    Resp::BulkString(key),
+                ])
+            }
+            LogCommand::Set { key, value } => {
+                Resp::Array(vec![
+                    Resp::BulkString("SET".to_string()),
+                    Resp::BulkString(key),
+                    Resp::BulkString(value),
+                ])
+            }
+        }
+        
+    }
+
 }
 
 impl InnerKvStore {
@@ -110,13 +167,15 @@ impl InnerKvStore {
 
         let reader = BufReader::new(&file);
 
-        let deserializer = serde_json::de::Deserializer::from_reader(reader);
-        let mut iterator = deserializer.into_iter::<LogCommand>();
+        let deserializer = resp::ReaderParser::from_reader(reader);
+        let mut iterator = deserializer.into_iter();
 
         // loop over all the items and rebuild the index
         let mut offset = 0;
-        while let Some(cmd) = iterator.next() {
-            let key = match cmd? {
+        while let Some(resp) = iterator.next() {
+            let cmd = resp.try_into()?;
+
+            let key = match cmd {
                 LogCommand::Rm { key } => key,
                 LogCommand::Set { key, .. } => key,
             };
@@ -149,7 +208,7 @@ impl InnerKvStore {
             value: value.clone(),
         };
 
-        let j = serde_json::to_string(&command)?;
+        let j: Resp = command.into();
 
         // open the log file with append-only permissions
         let mut file = OpenOptions::new()
@@ -160,12 +219,12 @@ impl InnerKvStore {
         // simply write the json encoded string to the end of the log file
         let offset = file.seek(std::io::SeekFrom::End(0))?;
 
-        let _ = file.write(j.as_bytes())?;
+        let _ = file.write(j.serialize().as_bytes())?;
 
         // insert the byte offset into the index
         let ptr = LogPointer {
             offset: offset as usize,
-            size: j.as_bytes().len(),
+            size: j.serialize().len(),
         };
 
         if let Some(ptr) = self.index.insert(key, ptr) {
@@ -199,9 +258,9 @@ impl InnerKvStore {
             file.seek(std::io::SeekFrom::Start(value.offset as u64))?;
 
             let mut reader = file.take(value.size as u64);
-            let cmd: LogCommand = serde_json::from_reader(&mut reader)?;
+            let resp: Resp = Resp::from_reader(&mut reader)?;
 
-            writer.write(serde_json::to_string(&cmd)?.as_bytes())?;
+            writer.write(resp.serialize().as_bytes())?;
 
             *value = LogPointer {
                 offset,
@@ -230,7 +289,7 @@ impl InnerKvStore {
                 file.seek(std::io::SeekFrom::Start(offset as u64))?;
                 let reader = file.take(size as u64);
 
-                let cmd: LogCommand = serde_json::from_reader(reader)?;
+                let cmd: LogCommand = resp::Resp::from_reader(reader)?.try_into()?;
 
                 let res = match cmd {
                     LogCommand::Rm { .. } => Ok(None),
@@ -246,7 +305,7 @@ impl InnerKvStore {
     fn remove(&mut self, key: String) -> Result<()> {
         let command = LogCommand::Rm { key: key.clone() };
 
-        let j = serde_json::to_string(&command)?;
+        let resp: Resp = command.into();
 
         // open the log file with append-only permissions
         let mut file = OpenOptions::new()
@@ -257,7 +316,7 @@ impl InnerKvStore {
         // simply write the json encoded string to the end of the log file
         let _ = file.seek(std::io::SeekFrom::End(0))?;
 
-        let _ = file.write(j.as_bytes())?;
+        let _ = file.write(resp.serialize().as_bytes())?;
 
         match self.index.remove(&key) {
             Some(ptr) => {

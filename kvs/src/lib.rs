@@ -39,7 +39,7 @@ pub enum KvsError {
     CantOpen(#[from] std::io::Error),
     /// Failed to parse a command from json
     #[error("Could not parse command")]
-    ParseError(#[from] serde_json::Error),
+    ParseError,
     /// Key not found in the index / log
     #[error("Could not find key {key:?}")]
     NotFound {
@@ -49,6 +49,9 @@ pub enum KvsError {
     /// failed to acquire a `Mutex` lock
     #[error("Failed to acquire lock")]
     LockError,
+    /// failed to read the command from a `Resp` value
+    #[error("Failed to read value")]
+    ReaderError(#[from] resp::Error)
 }
 
 /// Custom Result type for KvsStore
