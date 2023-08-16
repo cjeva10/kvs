@@ -1,11 +1,10 @@
 use eyre::Result;
-use kvs::KvStore;
+use kvs::{KvEngine, KvStore};
 use log::{debug, error, info, trace};
 use resp::{Resp, SerializeResp};
 use std::{
     env::current_dir,
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::{Arc, Mutex},
 };
 use tokio::{
     io::{AsyncWriteExt, BufReader, BufWriter},
@@ -26,7 +25,7 @@ async fn main() -> Result<()> {
     path.push("data");
 
     info!("Opening KvStore at {}", path.to_str().unwrap());
-    let kvs = Arc::new(Mutex::new(KvStore::open(path)?));
+    let kvs = KvStore::open(path)?;
 
     let addr = "127.0.0.1:6379";
 
@@ -51,7 +50,7 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn process(stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> Result<()> {
+async fn process(stream: TcpStream, kvs: impl KvEngine) -> Result<()> {
     tokio::spawn(async {
         let peer = stream
             .peer_addr()
@@ -69,7 +68,7 @@ async fn process(stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> Result<()> {
     Ok(())
 }
 
-async fn handle_connection(mut stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> Result<()> {
+async fn handle_connection(mut stream: TcpStream, kvs: impl KvEngine) -> Result<()> {
     trace!("creating Reader and Writer");
 
     let reader = BufReader::new(&mut stream);
@@ -181,12 +180,12 @@ fn read_cmd(arr: Vec<Resp>) -> Option<Command> {
     }
 }
 
-fn exec_cmd(cmd: Option<Command>, kvs: Arc<Mutex<KvStore>>) -> Result<Resp> {
+fn exec_cmd(cmd: Option<Command>, kvs: impl KvEngine) -> Result<Resp> {
     match cmd {
         Some(Command::Set { key, value }) => {
             debug!("Setting {} to {}", &key, &value);
 
-            if let Ok(()) = kvs.lock().unwrap().set(key.clone(), value.clone()) {
+            if let Ok(()) = kvs.set(key.clone(), value.clone()) {
                 debug!("Set {} to {} successfully", key, value);
                 let ok = Resp::SimpleString("OK".to_string());
                 Ok(ok)
@@ -198,7 +197,7 @@ fn exec_cmd(cmd: Option<Command>, kvs: Arc<Mutex<KvStore>>) -> Result<Resp> {
         }
         Some(Command::Get { key }) => {
             debug!("Getting {}", key);
-            if let Ok(Some(value)) = kvs.lock().unwrap().get(key.clone()) {
+            if let Ok(Some(value)) = kvs.get(key.clone()) {
                 debug!("Got {} = {}", key, value);
                 let resp = Resp::BulkString(value);
                 Ok(resp)
@@ -210,7 +209,7 @@ fn exec_cmd(cmd: Option<Command>, kvs: Arc<Mutex<KvStore>>) -> Result<Resp> {
         }
         Some(Command::Remove { key }) => {
             debug!("Removing {}", key);
-            if let Ok(()) = kvs.lock().unwrap().remove(key.clone()) {
+            if let Ok(()) = kvs.remove(key.clone()) {
                 debug!("Removed {} successfully", key);
                 let ok = Resp::SimpleString("OK".to_string());
                 Ok(ok)
