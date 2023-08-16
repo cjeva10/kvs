@@ -1,3 +1,5 @@
+use crate::{KvEngine, KvsError, Result};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -6,8 +8,6 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use log::info;
-use crate::{KvsError, Result, KvsEngine};
 
 // compact when there is 1 MB compactable
 const COMPACT_THRESHOLD: usize = 1024 * 1024;
@@ -18,25 +18,40 @@ pub struct KvStore {
     inner: Arc<Mutex<InnerKvStore>>,
 }
 
-impl KvsEngine for KvStore {
+impl KvStore {
+    /// Open the KvStore at the given file
+    pub fn open(path: impl Into<PathBuf>) -> Result<Self> {
+        let inner = InnerKvStore::open(path)?;
+
+        Ok(Self { inner: Arc::new(Mutex::new(inner)) })
+    }
+}
+
+impl KvEngine for KvStore {
     fn set(&self, key: String, value: String) -> Result<()> {
-        self.inner.lock().map_err(|_| KvsError::LockError)?.set(key, value)
-    } 
+        self.inner
+            .lock()
+            .map_err(|_| KvsError::LockError)?
+            .set(key, value)
+    }
 
     fn get(&self, key: String) -> Result<Option<String>> {
         self.inner.lock().map_err(|_| KvsError::LockError)?.get(key)
     }
 
     fn remove(&self, key: String) -> Result<()> {
-        self.inner.lock().map_err(|_| KvsError::LockError)?.remove(key)
+        self.inner
+            .lock()
+            .map_err(|_| KvsError::LockError)?
+            .remove(key)
     }
 }
 
-/// Inner structure of a `KvStore`
-///
-/// Note: Does not satisfy `KvsEngine`, therefore you should use `KvStore` which 
-/// hides the inner state behind a `Arc<Mutex<InnerKvStore>>`
-pub struct InnerKvStore {
+// Inner structure of a `KvStore`
+//
+// Note: Does not satisfy `KvsEngine`, therefore you should use `KvStore` which
+// hides the inner state behind a `Arc<Mutex<InnerKvStore>>`
+struct InnerKvStore {
     index: BTreeMap<String, LogPointer>,
     log_path: PathBuf,
     dir_path: PathBuf,
@@ -57,8 +72,7 @@ enum LogCommand {
 }
 
 impl InnerKvStore {
-    /// Open the KvStore at the given file
-    pub fn open(path: impl Into<PathBuf>) -> Result<InnerKvStore> {
+    fn open(path: impl Into<PathBuf>) -> Result<InnerKvStore> {
         let path = path.into();
         fs::create_dir_all(&path)?;
 
@@ -124,8 +138,7 @@ impl InnerKvStore {
         Ok(store)
     }
 
-    /// set a key-value pair
-    pub fn set(&mut self, key: String, value: String) -> Result<()> {
+    fn set(&mut self, key: String, value: String) -> Result<()> {
         // check if the key is already in the index
         if let Some(ptr) = self.index.get(&key) {
             self.compactable += ptr.size;
@@ -167,8 +180,6 @@ impl InnerKvStore {
         Ok(())
     }
 
-    // iterate through the index, write all the entries at the end of the file, then simply delete
-    // everything before the starting index
     fn compact(&mut self) -> Result<()> {
         self.file_number += 1;
         let temp_path = self.dir_path.join(format!("{}.log", self.file_number));
@@ -208,9 +219,7 @@ impl InnerKvStore {
         Ok(())
     }
 
-    /// get a key-value pair
-    /// Takes a `String` and returns `Option<String>`
-    pub fn get(&self, key: String) -> Result<Option<String>> {
+    fn get(&self, key: String) -> Result<Option<String>> {
         match self.index.get(&key).cloned() {
             Some(ptr) => {
                 let offset = ptr.offset;
@@ -234,9 +243,7 @@ impl InnerKvStore {
         }
     }
 
-    /// removes a key-value pair
-    /// if the key does not exist, does nothing
-    pub fn remove(&mut self, key: String) -> Result<()> {
+    fn remove(&mut self, key: String) -> Result<()> {
         let command = LogCommand::Rm { key: key.clone() };
 
         let j = serde_json::to_string(&command)?;

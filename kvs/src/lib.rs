@@ -3,21 +3,18 @@
 //!
 //! For now, this only supports storing keys and values as `String`
 
-use std::sync::{PoisonError, Mutex, MutexGuard};
-
-use kvstore::InnerKvStore;
+pub use kvstore::KvStore;
 use thiserror::Error;
 
-/// Defines the default implementation of a `KvsEngine`
-pub mod kvstore;
+mod kvstore;
 
-/// Abstract trait for defining a `kvs` engine
+/// Defines shared behavior for interacting with a key-value store 
 ///
 /// Note, that all the methods receive shared references to the underlying type.
 /// This allows sharing the state of the engine across threads. Implementors
 /// should employ synchronization primitives such as `Mutex` in order to acquire
 /// interior mutability across threads.
-pub trait KvsEngine: Clone + Send + 'static {
+pub trait KvEngine: Clone + Send + 'static {
     /// set the given `key` to the given `value`
     fn set(&self, key: String, value: String) -> Result<()>;
     /// get the value of the given `key`
