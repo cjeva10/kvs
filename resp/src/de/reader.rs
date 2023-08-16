@@ -1,6 +1,9 @@
 use crate::{de::ParseResp, Error, Resp, Result};
 use async_trait::async_trait;
-use std::{collections::VecDeque, str::from_utf8};
+use std::{
+    collections::VecDeque,
+    str::from_utf8,
+};
 use tokio::io::AsyncReadExt;
 
 trait StartsWith {
