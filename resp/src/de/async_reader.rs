@@ -1,22 +1,10 @@
-use crate::{de::AsyncParseResp, Error, Resp, Result};
-use async_trait::async_trait;
-use std::{
-    collections::VecDeque,
-    str::from_utf8,
+use crate::{
+    de::{AsyncParseResp, StartsWith},
+    Error, Resp, Result,
 };
+use async_trait::async_trait;
+use std::{collections::VecDeque, str::from_utf8};
 use tokio::io::AsyncReadExt;
-
-trait StartsWith {
-    fn starts_with(&self, needle: &[u8]) -> bool;
-}
-
-impl StartsWith for VecDeque<u8> {
-    fn starts_with(&self, needle: &[u8]) -> bool {
-        let n = needle.len();
-        let start: Vec<u8> = self.range(..n).copied().collect();
-        self.len() >= n && needle == &start
-    }
-}
 
 pub struct AsyncReaderParser<R: AsyncReadExt + Unpin + Sync + Send> {
     reader: R,

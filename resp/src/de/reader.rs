@@ -1,22 +1,37 @@
-use crate::{de::ParseResp, Error, Resp, Result};
+use crate::{
+    de::{ParseResp, StartsWith},
+    Error, Resp, Result,
+};
 use async_trait::async_trait;
 use std::{collections::VecDeque, io::Read, str::from_utf8};
-
-trait StartsWith {
-    fn starts_with(&self, needle: &[u8]) -> bool;
-}
-
-impl StartsWith for VecDeque<u8> {
-    fn starts_with(&self, needle: &[u8]) -> bool {
-        let n = needle.len();
-        let start: Vec<u8> = self.range(..n).copied().collect();
-        self.len() >= n && needle == &start
-    }
-}
 
 pub struct ReaderParser<R: Read> {
     reader: R,
     buf: VecDeque<u8>,
+}
+
+pub struct ReaderParserIntoIter<R: Read> {
+    inner: ReaderParser<R>,
+}
+
+impl<R: Read> IntoIterator for ReaderParser<R> {
+    type Item = Resp;
+    type IntoIter = ReaderParserIntoIter<R>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ReaderParserIntoIter { inner: self }
+    }
+}
+
+impl<R: Read> Iterator for ReaderParserIntoIter<R> {
+    type Item = Resp;
+
+    fn next(&mut self) -> Option<Resp> {
+        match self.inner.parse_any() {
+            Ok(resp) => Some(resp),
+            Err(_) => None,
+        }
+    }
 }
 
 impl<R: Read> ReaderParser<R> {
@@ -438,5 +453,26 @@ mod tests {
         let expected = "encountered an invalid prefix".to_owned();
 
         assert_eq!(res.to_string(), expected);
+    }
+
+    #[test]
+    fn test_iterators() {
+        let input = b"+hello\r\n+hello\r\n+hello\r\n";
+        let mut res = ReaderParser::from_reader(&input[..]).into_iter();
+
+        assert_eq!(res.next().unwrap(), Resp::SimpleString("hello".to_owned()));
+        assert_eq!(res.next().unwrap(), Resp::SimpleString("hello".to_owned()));
+        assert_eq!(res.next().unwrap(), Resp::SimpleString("hello".to_owned()));
+
+        let input = b"+hello\r\n:10\r\n$5\r\nhello\r\n*2\r\n:10\r\n:10\r\n";
+        let mut res = ReaderParser::from_reader(&input[..]).into_iter();
+
+        assert_eq!(res.next().unwrap(), Resp::SimpleString("hello".to_owned()));
+        assert_eq!(res.next().unwrap(), Resp::Integer(10));
+        assert_eq!(res.next().unwrap(), Resp::BulkString("hello".to_owned()));
+        assert_eq!(res.next().unwrap(), Resp::Array(vec![
+            Resp::Integer(10),
+            Resp::Integer(10),
+        ]));
     }
 }

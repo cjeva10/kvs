@@ -1,6 +1,6 @@
 use crate::{de::reader::ReaderParser, Error, Resp, Result};
 use async_trait::async_trait;
-use std::io::Read;
+use std::{collections::VecDeque, io::Read};
 use tokio::io::AsyncReadExt;
 
 mod async_reader;
@@ -201,4 +201,16 @@ trait ParseResp {
     fn parse_null(&mut self) -> Result<Resp>;
     fn parse_error(&mut self) -> Result<Resp>;
     fn parse_null_array(&mut self) -> Result<Resp>;
+}
+
+trait StartsWith {
+    fn starts_with(&self, needle: &[u8]) -> bool;
+}
+
+impl StartsWith for VecDeque<u8> {
+    fn starts_with(&self, needle: &[u8]) -> bool {
+        let n = needle.len();
+        let start: Vec<u8> = self.range(..n).copied().collect();
+        self.len() >= n && needle == &start
+    }
 }
