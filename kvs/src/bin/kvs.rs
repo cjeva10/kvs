@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use eyre::Result;
-use kvs::KvStore;
+use kvs::kvstore::KvStore;
 use std::{env::current_dir, process::exit};
 
 #[derive(Parser)] // requires `derive` feature
