@@ -21,24 +21,26 @@
 //! ## Parse `Resp` from a `&[u8]`, `&str` and a reader
 //!
 //! ```rust
+//! # tokio_test::block_on(async {
 //! use resp::Resp;
 //!
 //! let bytes = b"$11\r\nhello world\r\n";
-//! let res = Resp::from_bytes(bytes).unwrap();
+//! let res = Resp::from_bytes(bytes).await.unwrap();
 //!
 //! assert_eq!(res, Resp::BulkString("hello world".to_owned()));
 //!
 //! let string = "$11\r\nhello world\r\n";
-//! let res = Resp::from_str(string).unwrap();
+//! let res = Resp::from_str(string).await.unwrap();
 //!
 //! assert_eq!(res, Resp::BulkString("hello world".to_owned()));
 //!
 //! use std::io::Cursor;
 //!
 //! let reader = Cursor::new(b"$11\r\nhello world\r\n".to_owned());
-//! let res = Resp::from_reader(reader).unwrap();
+//! let res = Resp::from_reader(reader).await.unwrap();
 //!
 //! assert_eq!(res, Resp::BulkString("hello world".to_owned()));
+//! # })
 //! ```
 //!
 

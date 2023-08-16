@@ -1,5 +1,6 @@
 use crate::{Error, Resp, Result};
-use std::io::Read;
+use tokio::io::AsyncReadExt;
+use async_trait::async_trait;
 
 mod byte;
 mod reader;
@@ -15,21 +16,22 @@ impl Resp {
     /// # Examples
     ///
     /// ```rust
+    /// # tokio_test::block_on(async {
     /// use crate::resp::Resp;
     ///
     /// let input = "*2\r\n+hello\r\n+world\r\n";
-    /// let resp = Resp::from_str(input).unwrap();
+    /// let resp = Resp::from_str(input).await.unwrap();
     /// let expected = Resp::Array(vec![
     ///     Resp::SimpleString("hello".to_owned()),
     ///     Resp::SimpleString("world".to_owned()),
     /// ]);
-    ///
     /// assert_eq!(resp, expected);
+    /// # })
     /// ```
-    pub fn from_str(s: &str) -> Result<Self> {
+    pub async fn from_str(s: &str) -> Result<Self> {
         let mut deserializer = ByteParser::from_str(s);
 
-        let res = deserializer.parse_any()?;
+        let res = deserializer.parse_any().await?;
 
         if deserializer.is_empty() {
             Ok(res)
@@ -43,21 +45,23 @@ impl Resp {
     /// # Examples
     ///
     /// ```rust
+    /// # tokio_test::block_on(async {
     /// use crate::resp::Resp;
     ///
     /// let input = b"*2\r\n+hello\r\n+world\r\n";
-    /// let resp = Resp::from_reader(&input[..]).unwrap();
+    /// let resp = Resp::from_reader(&input[..]).await.unwrap();
     /// let expected = Resp::Array(vec![
     ///     Resp::SimpleString("hello".to_owned()),
     ///     Resp::SimpleString("world".to_owned()),
     /// ]);
     ///
     /// assert_eq!(resp, expected);
+    /// # })
     /// ```
-    pub fn from_reader(reader: impl Read) -> Result<Self> {
+    pub async fn from_reader<R: AsyncReadExt + Send + Unpin + Sync>(reader: R) -> Result<Self> {
         let mut deserializer = ReaderParser::from_reader(reader);
 
-        let res = deserializer.parse_any()?;
+        let res = deserializer.parse_any().await?;
 
         debug!("Parsed result = {:?}", res);
 
@@ -76,10 +80,11 @@ impl Resp {
     /// # Examples
     ///
     /// ```rust
+    /// # tokio_test::block_on(async {
     /// use crate::resp::Resp;
     ///
     /// let input = "*2\r\n+hello\r\n+world\r\n*2\r\n+hello\r\n+world\r\n";
-    /// let resp: Vec<Resp> = Resp::vec_from_str(input).unwrap();
+    /// let resp: Vec<Resp> = Resp::vec_from_str(input).await.unwrap();
     /// let expected = vec![
     ///     Resp::Array(vec![
     ///         Resp::SimpleString("hello".to_owned()),
@@ -92,14 +97,15 @@ impl Resp {
     /// ];
     ///
     /// assert_eq!(resp, expected);
+    /// # })
     /// ```
-    pub fn vec_from_str(s: &str) -> Result<Vec<Self>> {
+    pub async fn vec_from_str(s: &str) -> Result<Vec<Self>> {
         let mut out = Vec::new();
 
         let mut deserializer = ByteParser::from_str(s);
 
         while !deserializer.is_empty() {
-            let res = deserializer.parse_any()?;
+            let res = deserializer.parse_any().await?;
 
             out.push(res);
         }
@@ -116,21 +122,23 @@ impl Resp {
     /// # Examples
     ///
     /// ```rust
+    /// # tokio_test::block_on(async {
     /// use crate::resp::Resp;
     ///
     /// let input = b"*2\r\n+hello\r\n+world\r\n";
-    /// let resp = Resp::from_bytes(input).unwrap();
+    /// let resp = Resp::from_bytes(input).await.unwrap();
     /// let expected = Resp::Array(vec![
     ///     Resp::SimpleString("hello".to_owned()),
     ///     Resp::SimpleString("world".to_owned()),
     /// ]);
     ///
     /// assert_eq!(resp, expected);
+    /// # })
     /// ```
-    pub fn from_bytes(b: &[u8]) -> Result<Self> {
+    pub async fn from_bytes(b: &[u8]) -> Result<Self> {
         let mut deserializer = ByteParser::from_bytes(b);
 
-        let res = deserializer.parse_any()?;
+        let res = deserializer.parse_any().await?;
 
         if deserializer.is_empty() {
             Ok(res)
@@ -141,13 +149,14 @@ impl Resp {
 }
 
 /// This trait defines required methods for parsing a `Resp` object
+#[async_trait]
 trait ParseResp {
-    fn parse_any(&mut self) -> Result<Resp>;
-    fn parse_simple_string(&mut self) -> Result<Resp>;
-    fn parse_bulk_string(&mut self) -> Result<Resp>;
-    fn parse_integer(&mut self) -> Result<Resp>;
-    fn parse_array(&mut self) -> Result<Resp>;
-    fn parse_null(&mut self) -> Result<Resp>;
-    fn parse_error(&mut self) -> Result<Resp>;
-    fn parse_null_array(&mut self) -> Result<Resp>;
+    async fn parse_any(&mut self) -> Result<Resp>;
+    async fn parse_simple_string(&mut self) -> Result<Resp>;
+    async fn parse_bulk_string(&mut self) -> Result<Resp>;
+    async fn parse_integer(&mut self) -> Result<Resp>;
+    async fn parse_array(&mut self) -> Result<Resp>;
+    async fn parse_null(&mut self) -> Result<Resp>;
+    async fn parse_error(&mut self) -> Result<Resp>;
+    async fn parse_null_array(&mut self) -> Result<Resp>;
 }

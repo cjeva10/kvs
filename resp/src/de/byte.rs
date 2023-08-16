@@ -1,6 +1,7 @@
 use crate::{de::ParseResp, Error, Resp, Result};
 use bstr::ByteSlice;
 use std::str::from_utf8;
+use async_trait::async_trait;
 
 pub struct ByteParser<'de> {
     input: &'de [u8],
@@ -65,19 +66,20 @@ impl<'de> ByteParser<'de> {
     }
 }
 
+#[async_trait]
 impl<'de> ParseResp for ByteParser<'de> {
-    fn parse_any(&mut self) -> Result<Resp> {
+    async fn parse_any(&mut self) -> Result<Resp> {
         match self.peek_char()? {
-            b'$' => self.parse_bulk_string(),
-            b'+' => self.parse_simple_string(),
-            b'-' => self.parse_error(),
-            b'*' => self.parse_array(),
-            b':' => self.parse_integer(),
+            b'$' => self.parse_bulk_string().await,
+            b'+' => self.parse_simple_string().await,
+            b'-' => self.parse_error().await,
+            b'*' => self.parse_array().await,
+            b':' => self.parse_integer().await,
             _ => Err(Error::InvalidPrefix),
         }
     }
 
-    fn parse_null(&mut self) -> Result<Resp> {
+    async fn parse_null(&mut self) -> Result<Resp> {
         if self.input.starts_with(b"$-1\r\n") {
             self.input = &self.input[b"$-1\r\n".len()..];
             return Ok(Resp::Null);
@@ -85,7 +87,7 @@ impl<'de> ParseResp for ByteParser<'de> {
         Err(Error::ExpectedNull)
     }
 
-    fn parse_error(&mut self) -> Result<Resp> {
+    async fn parse_error(&mut self) -> Result<Resp> {
         if self.next_char()? != b'-' {
             return Err(Error::ExpectedError);
         }
@@ -100,7 +102,8 @@ impl<'de> ParseResp for ByteParser<'de> {
             None => Err(Error::Eof),
         }
     }
-    fn parse_simple_string(&mut self) -> Result<Resp> {
+
+    async fn parse_simple_string(&mut self) -> Result<Resp> {
         if self.next_char()? != b'+' {
             return Err(Error::ExpectedSimpleString);
         }
@@ -116,7 +119,7 @@ impl<'de> ParseResp for ByteParser<'de> {
         }
     }
 
-    fn parse_integer(&mut self) -> Result<Resp> {
+    async fn parse_integer(&mut self) -> Result<Resp> {
         if self.next_char()? != b':' {
             return Err(Error::ExpectedInteger);
         }
@@ -153,9 +156,9 @@ impl<'de> ParseResp for ByteParser<'de> {
         }
     }
 
-    fn parse_bulk_string(&mut self) -> Result<Resp> {
+    async fn parse_bulk_string(&mut self) -> Result<Resp> {
         if self.input.starts_with(b"$-1\r\n") {
-            return self.parse_null();
+            return self.parse_null().await;
         }
 
         if self.next_char()? != b'$' {
@@ -174,9 +177,9 @@ impl<'de> ParseResp for ByteParser<'de> {
         Ok(Resp::BulkString(from_utf8(s)?.to_string()))
     }
 
-    fn parse_array(&mut self) -> Result<Resp> {
+    async fn parse_array(&mut self) -> Result<Resp> {
         if self.input.starts_with(b"*-1\r\n") {
-            return self.parse_null_array();
+            return self.parse_null_array().await;
         }
 
         if self.next_char()? != b'*' {
@@ -190,14 +193,14 @@ impl<'de> ParseResp for ByteParser<'de> {
         let mut out: Vec<Resp> = Vec::new();
 
         for _ in 0..len {
-            let next = self.parse_any()?;
+            let next = self.parse_any().await?;
             out.push(next);
         }
 
         Ok(Resp::Array(out))
     }
 
-    fn parse_null_array(&mut self) -> Result<Resp> {
+    async fn parse_null_array(&mut self) -> Result<Resp> {
         if self.input.starts_with(b"*-1\r\n") {
             self.input = &self.input["*-1\r\n".len()..];
             return Ok(Resp::NullArray);
@@ -210,112 +213,112 @@ impl<'de> ParseResp for ByteParser<'de> {
 mod tests {
     use crate::{Error, Resp};
 
-    #[test]
-    fn test_parse_bulk_string() {
+    #[tokio::test]
+    async fn test_parse_bulk_string() {
         let s = "$5\r\nhello\r\n";
-        let res = Resp::from_str(s).unwrap();
+        let res = Resp::from_str(s).await.unwrap();
         let expected = Resp::BulkString("hello".to_owned());
 
         assert_eq!(res, expected);
 
         let s = b"$5\r\nhello\r\n";
-        let res = Resp::from_bytes(s).unwrap();
+        let res = Resp::from_bytes(s).await.unwrap();
         let expected = Resp::BulkString("hello".to_owned());
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_null() {
+    #[tokio::test]
+    async fn test_parse_null() {
         let input = "$-1\r\n";
-        let res = Resp::from_str(input).unwrap();
+        let res = Resp::from_str(input).await.unwrap();
         let expected = Resp::Null;
 
         assert_eq!(res, expected);
 
         let input = b"$-1\r\n";
-        let res = Resp::from_bytes(input).unwrap();
+        let res = Resp::from_bytes(input).await.unwrap();
         let expected = Resp::Null;
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_null_array() {
+    #[tokio::test]
+    async fn test_parse_null_array() {
         let input = "*-1\r\n";
-        let res = Resp::from_str(input).unwrap();
+        let res = Resp::from_str(input).await.unwrap();
         let expected = Resp::NullArray;
 
         assert_eq!(res, expected);
 
         let input = b"*-1\r\n";
-        let res = Resp::from_bytes(input).unwrap();
+        let res = Resp::from_bytes(input).await.unwrap();
         let expected = Resp::NullArray;
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_simple_string() {
+    #[tokio::test]
+    async fn test_parse_simple_string() {
         let input = "+hello\r\n";
-        let res = Resp::from_str(input).unwrap();
+        let res = Resp::from_str(input).await.unwrap();
         let expected = Resp::SimpleString("hello".to_owned());
 
         assert_eq!(res, expected);
 
         let input = b"+hello\r\n";
-        let res = Resp::from_bytes(input).unwrap();
+        let res = Resp::from_bytes(input).await.unwrap();
         let expected = Resp::SimpleString("hello".to_owned());
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_integer() {
+    #[tokio::test]
+    async fn test_parse_integer() {
         let pos = ":10\r\n";
-        let res = Resp::from_str(pos).unwrap();
+        let res = Resp::from_str(pos).await.unwrap();
         let expected = Resp::Integer(10);
 
         assert_eq!(res, expected);
 
         let neg = ":-10\r\n";
-        let res = Resp::from_str(neg).unwrap();
+        let res = Resp::from_str(neg).await.unwrap();
         let expected = Resp::Integer(-10);
 
         assert_eq!(res, expected);
 
         let pos = b":10\r\n";
-        let res = Resp::from_bytes(pos).unwrap();
+        let res = Resp::from_bytes(pos).await.unwrap();
         let expected = Resp::Integer(10);
 
         assert_eq!(res, expected);
 
         let neg = b":-10\r\n";
-        let res = Resp::from_bytes(neg).unwrap();
+        let res = Resp::from_bytes(neg).await.unwrap();
         let expected = Resp::Integer(-10);
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_error() {
+    #[tokio::test]
+    async fn test_parse_error() {
         let input = "-ERR error\r\n";
-        let res = Resp::from_str(input).unwrap();
+        let res = Resp::from_str(input).await.unwrap();
         let expected = Resp::Error("ERR error".to_owned());
 
         assert_eq!(res, expected);
 
         let input = b"-ERR error\r\n";
-        let res = Resp::from_bytes(input).unwrap();
+        let res = Resp::from_bytes(input).await.unwrap();
         let expected = Resp::Error("ERR error".to_owned());
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_list() {
+    #[tokio::test]
+    async fn test_parse_list() {
         let input = "*2\r\n+hello\r\n+world\r\n";
-        let res = Resp::from_str(input).unwrap();
+        let res = Resp::from_str(input).await.unwrap();
         let expected = Resp::Array(vec![
             Resp::SimpleString("hello".to_owned()),
             Resp::SimpleString("world".to_owned()),
@@ -324,7 +327,7 @@ mod tests {
         assert_eq!(res, expected);
 
         let input = b"*2\r\n+hello\r\n+world\r\n";
-        let res = Resp::from_bytes(input).unwrap();
+        let res = Resp::from_bytes(input).await.unwrap();
         let expected = Resp::Array(vec![
             Resp::SimpleString("hello".to_owned()),
             Resp::SimpleString("world".to_owned()),
@@ -333,10 +336,10 @@ mod tests {
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_nested_list() {
+    #[tokio::test]
+    async fn test_parse_nested_list() {
         let input = "*2\r\n*2\r\n+hello\r\n+world\r\n:10\r\n";
-        let res = Resp::from_str(input).unwrap();
+        let res = Resp::from_str(input).await.unwrap();
         let expected = Resp::Array(vec![
             Resp::Array(vec![
                 Resp::SimpleString("hello".to_owned()),
@@ -348,7 +351,7 @@ mod tests {
         assert_eq!(res, expected);
 
         let input = b"*2\r\n*2\r\n+hello\r\n+world\r\n:10\r\n";
-        let res = Resp::from_bytes(input).unwrap();
+        let res = Resp::from_bytes(input).await.unwrap();
         let expected = Resp::Array(vec![
             Resp::Array(vec![
                 Resp::SimpleString("hello".to_owned()),
@@ -360,49 +363,49 @@ mod tests {
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_weird_characters() {
+    #[tokio::test]
+    async fn test_weird_characters() {
         let input = "++//$$-+*\n\t\n !@#$%^&*()_\\  \r\n";
-        let res = Resp::from_str(input).unwrap();
+        let res = Resp::from_str(input).await.unwrap();
         let expected = Resp::SimpleString("+//$$-+*\n\t\n !@#$%^&*()_\\  ".to_owned());
 
         assert_eq!(res, expected);
 
         let input = b"++//$$-+*\n\t\n !@#$%^&*()_\\  \r\n";
-        let res = Resp::from_bytes(input).unwrap();
+        let res = Resp::from_bytes(input).await.unwrap();
         let expected = Resp::SimpleString("+//$$-+*\n\t\n !@#$%^&*()_\\  ".to_owned());
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_invalid_prefix() {
+    #[tokio::test]
+    async fn test_invalid_prefix() {
         let input = "bad";
-        let res = Resp::from_str(input).err().unwrap();
+        let res = Resp::from_str(input).await.err().unwrap();
         let expected = Error::InvalidPrefix;
 
         assert_eq!(res, expected);
 
         let input = b"bad";
-        let res = Resp::from_bytes(input).err().unwrap();
+        let res = Resp::from_bytes(input).await.err().unwrap();
         let expected = Error::InvalidPrefix;
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_bytes() {
+    #[tokio::test]
+    async fn test_parse_bytes() {
         let bytes = b"+hello world\r\n";
-        let res = Resp::from_bytes(bytes).unwrap();
+        let res = Resp::from_bytes(bytes).await.unwrap();
         let expected = Resp::SimpleString("hello world".to_owned());
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_bad_bytes() {
+    #[tokio::test]
+    async fn test_bad_bytes() {
         let shift_jis = b"\x82\xe6\x82\xa8\x82\xb1\x82\xbb";
-        let res = Resp::from_bytes(shift_jis).err().unwrap();
+        let res = Resp::from_bytes(shift_jis).await.err().unwrap();
         let expected = "encountered an invalid prefix".to_owned();
 
         assert_eq!(res.to_string(), expected);

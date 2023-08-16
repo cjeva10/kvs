@@ -1,5 +1,7 @@
 use crate::{de::ParseResp, Error, Resp, Result};
-use std::{collections::VecDeque, io::Read, str::from_utf8};
+use async_trait::async_trait;
+use std::{collections::VecDeque, str::from_utf8};
+use tokio::io::AsyncReadExt;
 
 trait StartsWith {
     fn starts_with(&self, needle: &[u8]) -> bool;
@@ -13,12 +15,12 @@ impl StartsWith for VecDeque<u8> {
     }
 }
 
-pub struct ReaderParser<R: Read> {
+pub struct ReaderParser<R: AsyncReadExt + Unpin + Sync + Send> {
     reader: R,
     buf: VecDeque<u8>,
 }
 
-impl<R: Read> ReaderParser<R> {
+impl<R: AsyncReadExt + Unpin + Sync + Send> ReaderParser<R> {
     pub fn from_reader(reader: R) -> Self {
         ReaderParser {
             reader,
@@ -30,22 +32,22 @@ impl<R: Read> ReaderParser<R> {
         self.buf.is_empty()
     }
 
-    fn peek_char(&mut self) -> Result<u8> {
-        self.fill_buf()?;
+    async fn peek_char(&mut self) -> Result<u8> {
+        self.fill_buf().await?;
 
         Ok(self.buf.front().copied().unwrap())
     }
 
-    fn next_char(&mut self) -> Result<u8> {
-        self.fill_buf()?;
+    async fn next_char(&mut self) -> Result<u8> {
+        self.fill_buf().await?;
 
         Ok(self.buf.pop_front().unwrap())
     }
 
-    fn fill_buf(&mut self) -> Result<()> {
+    async fn fill_buf(&mut self) -> Result<()> {
         if self.buf.len() == 0 {
             let mut tmp = [0; 128];
-            let n = match self.reader.read(&mut tmp) {
+            let n = match self.reader.read(&mut tmp).await {
                 Ok(n) => n,
                 Err(_) => return Err(Error::ReaderFailed),
             };
@@ -60,19 +62,19 @@ impl<R: Read> ReaderParser<R> {
         Ok(())
     }
 
-    fn consume_crlf(&mut self) -> Result<()> {
-        if self.next_char()? != b'\r' {
+    async fn consume_crlf(&mut self) -> Result<()> {
+        if self.next_char().await? != b'\r' {
             return Err(Error::ExpectedCRLF);
         }
-        if self.next_char()? != b'\n' {
+        if self.next_char().await? != b'\n' {
             return Err(Error::ExpectedCRLF);
         }
 
         Ok(())
     }
 
-    fn parse_length(&mut self) -> Result<usize> {
-        let mut int: usize = match self.next_char()? {
+    async fn parse_length(&mut self) -> Result<usize> {
+        let mut int: usize = match self.next_char().await? {
             ch @ b'0'..=b'9' => (ch - b'0') as usize,
             _ => {
                 return Err(Error::ExpectedInteger);
@@ -80,9 +82,9 @@ impl<R: Read> ReaderParser<R> {
         };
 
         loop {
-            match self.peek_char()? {
+            match self.peek_char().await? {
                 ch @ b'0'..=b'9' => {
-                    self.next_char()?;
+                    self.next_char().await?;
                     int *= 10;
                     int += (ch - b'0') as usize;
                 }
@@ -95,23 +97,24 @@ impl<R: Read> ReaderParser<R> {
     }
 }
 
-impl<R: Read> ParseResp for ReaderParser<R> {
-    fn parse_any(&mut self) -> Result<Resp> {
-        match self.peek_char()? {
-            b'$' => self.parse_bulk_string(),
-            b'+' => self.parse_simple_string(),
-            b'-' => self.parse_error(),
-            b'*' => self.parse_array(),
-            b':' => self.parse_integer(),
+#[async_trait]
+impl<R: AsyncReadExt + Send + Unpin + Sync> ParseResp for ReaderParser<R> {
+    async fn parse_any(&mut self) -> Result<Resp> {
+        match self.peek_char().await? {
+            b'$' => self.parse_bulk_string().await,
+            b'+' => self.parse_simple_string().await,
+            b'-' => self.parse_error().await,
+            b'*' => self.parse_array().await,
+            b':' => self.parse_integer().await,
             _ => Err(Error::InvalidPrefix),
         }
     }
 
-    fn parse_null(&mut self) -> Result<Resp> {
+    async fn parse_null(&mut self) -> Result<Resp> {
         let expected = b"$-1\r\n";
 
         for b in expected {
-            if self.next_char()? != *b {
+            if self.next_char().await? != *b {
                 return Err(Error::ExpectedNull);
             }
         }
@@ -119,15 +122,15 @@ impl<R: Read> ParseResp for ReaderParser<R> {
         Ok(Resp::Null)
     }
 
-    fn parse_error(&mut self) -> Result<Resp> {
-        if self.next_char()? != b'-' {
+    async fn parse_error(&mut self) -> Result<Resp> {
+        if self.next_char().await? != b'-' {
             return Err(Error::ExpectedError);
         }
 
         let mut b: Vec<u8> = Vec::new();
         loop {
-            match self.next_char()? {
-                b'\r' => match self.next_char()? {
+            match self.next_char().await? {
+                b'\r' => match self.next_char().await? {
                     b'\n' => return Ok(Resp::Error(from_utf8(&b)?.to_string())),
                     _ => return Err(Error::ExpectedCRLF),
                 },
@@ -138,15 +141,15 @@ impl<R: Read> ParseResp for ReaderParser<R> {
         }
     }
 
-    fn parse_simple_string(&mut self) -> Result<Resp> {
-        if self.next_char()? != b'+' {
+    async fn parse_simple_string(&mut self) -> Result<Resp> {
+        if self.next_char().await? != b'+' {
             return Err(Error::ExpectedError);
         }
 
         let mut b: Vec<u8> = Vec::new();
         loop {
-            match self.next_char()? {
-                b'\r' => match self.next_char()? {
+            match self.next_char().await? {
+                b'\r' => match self.next_char().await? {
                     b'\n' => return Ok(Resp::SimpleString(from_utf8(&b)?.to_string())),
                     _ => return Err(Error::ExpectedCRLF),
                 },
@@ -157,18 +160,18 @@ impl<R: Read> ParseResp for ReaderParser<R> {
         }
     }
 
-    fn parse_integer(&mut self) -> Result<Resp> {
-        if self.next_char()? != b':' {
+    async fn parse_integer(&mut self) -> Result<Resp> {
+        if self.next_char().await? != b':' {
             return Err(Error::ExpectedError);
         }
 
         let mut neg = false;
-        if self.peek_char()? == b'-' {
-            self.next_char()?;
+        if self.peek_char().await? == b'-' {
+            self.next_char().await?;
             neg = true;
         }
 
-        let mut int: i64 = match self.next_char()? {
+        let mut int: i64 = match self.next_char().await? {
             ch @ b'0'..=b'9' => (ch - b'0') as i64,
             _ => {
                 return Err(Error::ExpectedInteger);
@@ -176,13 +179,13 @@ impl<R: Read> ParseResp for ReaderParser<R> {
         };
 
         loop {
-            match self.next_char()? {
+            match self.next_char().await? {
                 ch @ b'0'..=b'9' => {
                     int *= 10;
                     int += (ch as u8 - b'0') as i64;
                 }
                 b'\r' => {
-                    if self.next_char()? != b'\n' {
+                    if self.next_char().await? != b'\n' {
                         return Err(Error::ExpectedCRLF);
                     }
 
@@ -197,55 +200,55 @@ impl<R: Read> ParseResp for ReaderParser<R> {
         }
     }
 
-    fn parse_bulk_string(&mut self) -> Result<Resp> {
-        self.peek_char()?;
+    async fn parse_bulk_string(&mut self) -> Result<Resp> {
+        self.peek_char().await?;
 
         if self.buf.starts_with(b"$-1\r\n") {
-            return self.parse_null();
+            return self.parse_null().await;
         }
 
-        if self.next_char()? != b'$' {
+        if self.next_char().await? != b'$' {
             return Err(Error::ExpectedBulkString);
         }
 
-        let len = self.parse_length()?;
+        let len = self.parse_length().await?;
 
-        self.consume_crlf()?;
+        self.consume_crlf().await?;
 
         let b: Vec<u8> = self.buf.drain(..len).collect();
 
-        self.consume_crlf()?;
+        self.consume_crlf().await?;
 
         Ok(Resp::BulkString(from_utf8(&b)?.to_string()))
     }
 
-    fn parse_array(&mut self) -> Result<Resp> {
+    async fn parse_array(&mut self) -> Result<Resp> {
         if self.buf.starts_with(b"*-1\r\n") {
-            return self.parse_null_array();
+            return self.parse_null_array().await;
         }
 
-        if self.next_char()? != b'*' {
+        if self.next_char().await? != b'*' {
             return Err(Error::ExpectedArray);
         }
 
-        let len = self.parse_length()?;
+        let len = self.parse_length().await?;
 
-        self.consume_crlf()?;
+        self.consume_crlf().await?;
 
         let mut out: Vec<Resp> = Vec::new();
 
         for _ in 0..len {
-            let next = self.parse_any()?;
+            let next = self.parse_any().await?;
             out.push(next);
         }
 
         Ok(Resp::Array(out))
     }
 
-    fn parse_null_array(&mut self) -> Result<Resp> {
+    async fn parse_null_array(&mut self) -> Result<Resp> {
         if self.buf.starts_with(b"*-1\r\n") {
             for _ in 0..b"*-1\r\n".len() {
-                self.next_char()?;
+                self.next_char().await?;
             }
             return Ok(Resp::NullArray);
         }
@@ -258,39 +261,39 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    #[test]
-    fn test_bad_crlf() {
+    #[tokio::test]
+    async fn test_bad_crlf() {
         let mut vec: Vec<u8> = Vec::from(b"\rabc\n".to_owned());
         let reader = Cursor::new(&mut vec);
 
         let mut deserializer = ReaderParser::from_reader(reader);
 
-        let h = deserializer.consume_crlf().err().unwrap();
+        let h = deserializer.consume_crlf().await.err().unwrap();
 
         assert_eq!(h, Error::ExpectedCRLF);
     }
 
-    #[test]
-    fn test_reader_peek_char() {
+    #[tokio::test]
+    async fn test_reader_peek_char() {
         let mut vec: Vec<u8> = Vec::from(b"hello world\n".to_owned());
         let reader = Cursor::new(&mut vec);
 
         let mut deserializer = ReaderParser::from_reader(reader);
 
-        let h = deserializer.peek_char().unwrap();
+        let h = deserializer.peek_char().await.unwrap();
 
         assert_eq!(h, b'h');
     }
 
-    #[test]
-    fn test_reader_next_char() {
+    #[tokio::test]
+    async fn test_reader_next_char() {
         let input = b"hello world\n".to_owned();
         let reader = Cursor::new(input);
 
         let mut deserializer = ReaderParser::from_reader(reader);
 
         for i in 0..b"hello world\n".len() {
-            let h: u8 = deserializer.next_char().unwrap();
+            let h: u8 = deserializer.next_char().await.unwrap();
 
             assert_eq!(deserializer.buf, input[i + 1..].to_owned());
             assert_eq!(h, input[i]);
@@ -299,77 +302,77 @@ mod tests {
         assert!(deserializer.is_buf_empty());
     }
 
-    #[test]
-    fn test_parse_simple_string() {
+    #[tokio::test]
+    async fn test_parse_simple_string() {
         let input = b"+hello world\r\n";
 
         let mut deserializer = ReaderParser::from_reader(&input[..]);
 
-        let res = deserializer.parse_simple_string().unwrap();
+        let res = deserializer.parse_simple_string().await.unwrap();
 
         assert_eq!(res, Resp::SimpleString("hello world".to_owned()));
     }
 
-    #[test]
-    fn test_parse_error() {
+    #[tokio::test]
+    async fn test_parse_error() {
         let input = b"-hello world\r\n";
 
         let mut deserializer = ReaderParser::from_reader(&input[..]);
 
-        let res = deserializer.parse_error().unwrap();
+        let res = deserializer.parse_error().await.unwrap();
 
         assert_eq!(res, Resp::Error("hello world".to_owned()));
     }
 
-    #[test]
-    fn test_parse_integer() {
+    #[tokio::test]
+    async fn test_parse_integer() {
         let input = b":10\r\n";
 
         let mut deserializer = ReaderParser::from_reader(&input[..]);
 
-        let res = deserializer.parse_integer().unwrap();
+        let res = deserializer.parse_integer().await.unwrap();
 
         assert_eq!(res, Resp::Integer(10));
     }
 
-    #[test]
-    fn test_parse_bad_integer() {
+    #[tokio::test]
+    async fn test_parse_bad_integer() {
         let pos = b":10abc\r\n";
-        let err = Resp::from_reader(&pos[..]).err().unwrap();
+        let err = Resp::from_reader(&pos[..]).await.err().unwrap();
         assert_eq!(err, Error::ExpectedInteger)
     }
 
-    #[test]
-    fn test_parse_bulk_string() {
+    #[tokio::test]
+    async fn test_parse_bulk_string() {
         let input = b"$11\r\nhello world\r\n";
 
         let mut deserializer = ReaderParser::from_reader(&input[..]);
 
         // peek first to fill the buffer
-        deserializer.peek_char().unwrap();
+        deserializer.peek_char().await.unwrap();
 
-        let res = deserializer.parse_bulk_string().unwrap();
+        let res = deserializer.parse_bulk_string().await.unwrap();
 
         assert_eq!(res, Resp::BulkString("hello world".to_owned()));
     }
 
-    #[test]
-    fn test_parse_bad_length() {
+    #[tokio::test]
+    async fn test_parse_bad_length() {
         let s = b"$5abc\r\nhello\r\n";
-        let err = Resp::from_reader(&s[..]).err().unwrap();
+        let err = Resp::from_reader(&s[..]).await.err().unwrap();
         assert_eq!(err, Error::ExpectedLength)
     }
 
-    #[test]
-    fn test_parse_array() {
+    #[tokio::test]
+    async fn test_parse_array() {
         let input = b"*2\r\n+hello\r\n+world\r\n";
 
         let mut deserializer = ReaderParser::from_reader(&input[..]);
 
         // peek first to fill the buffer
-        deserializer.peek_char().unwrap();
+        deserializer.peek_char().await.unwrap();
 
-        let res = deserializer.parse_array().unwrap();
+        let res = deserializer.parse_array().await.unwrap();
 
         let expected = Resp::Array(vec![
             Resp::SimpleString("hello".to_owned()),
@@ -379,15 +382,15 @@ mod tests {
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_nested_array() {
+    #[tokio::test]
+    async fn test_parse_nested_array() {
         let input = b"*2\r\n*2\r\n+hello\r\n+world\r\n:10\r\n";
 
         let mut deserializer = ReaderParser::from_reader(&input[..]);
 
         // peek first to fill the buffer
-        deserializer.peek_char().unwrap();
-        let res = deserializer.parse_array().unwrap();
+        deserializer.peek_char().await.unwrap();
+        let res = deserializer.parse_array().await.unwrap();
 
         let expected = Resp::Array(vec![
             Resp::Array(vec![
@@ -399,40 +402,40 @@ mod tests {
 
         assert_eq!(res, expected);
     }
-    #[test]
-    fn test_weird_characters() {
+    #[tokio::test]
+    async fn test_weird_characters() {
         let input = b"++//$$-+*\n\t\n !@#$%^&*()_\\  \r\n";
         let mut deserializer = ReaderParser::from_reader(&input[..]);
 
-        let res = deserializer.parse_simple_string().unwrap();
+        let res = deserializer.parse_simple_string().await.unwrap();
 
         let expected = Resp::SimpleString("+//$$-+*\n\t\n !@#$%^&*()_\\  ".to_owned());
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_invalid_prefix() {
+    #[tokio::test]
+    async fn test_invalid_prefix() {
         let input = b"bad";
-        let res = Resp::from_reader(&input[..]).err().unwrap();
+        let res = Resp::from_reader(&input[..]).await.err().unwrap();
         let expected = Error::InvalidPrefix;
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_parse_bytes() {
+    #[tokio::test]
+    async fn test_parse_bytes() {
         let bytes = b"+hello world\r\n";
-        let res = Resp::from_reader(&bytes[..]).unwrap();
+        let res = Resp::from_reader(&bytes[..]).await.unwrap();
         let expected = Resp::SimpleString("hello world".to_owned());
 
         assert_eq!(res, expected);
     }
 
-    #[test]
-    fn test_bad_bytes() {
+    #[tokio::test]
+    async fn test_bad_bytes() {
         let shift_jis = b"\x82\xe6\x82\xa8\x82\xb1\x82\xbb";
-        let res = Resp::from_reader(&shift_jis[..]).err().unwrap();
+        let res = Resp::from_reader(&shift_jis[..]).await.err().unwrap();
         let expected = "encountered an invalid prefix".to_owned();
 
         assert_eq!(res.to_string(), expected);
