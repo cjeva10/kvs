@@ -1,3 +1,47 @@
+//! # Resp
+//!
+//! This crate implements the Redis Serialization Protocol (RESP)
+//!
+//! The `Resp` enum provides the basic types for Redis serialized messages.
+//!
+//! `Resp` can be serialized to strings, and can be parsed from `&[u8]`, `String`
+//! and readers
+//!
+//! # Examples
+//!
+//! ## Printing `Resp` to a `String`
+//!
+//! ```rust
+//! use resp::Resp;
+//!
+//! let hello = Resp::SimpleString("hello world".to_owned());
+//! assert_eq!(format!("{}", hello), "+hello world\r\n".to_string());
+//! ```
+//!
+//! ## Parse `Resp` from a `&[u8]`, `&str` and a reader
+//!
+//! ```rust
+//! use resp::Resp;
+//!
+//! let bytes = b"$11\r\nhello world\r\n";
+//! let res = Resp::from_bytes(bytes).unwrap();
+//!
+//! assert_eq!(res, Resp::BulkString("hello world".to_owned()));
+//!
+//! let string = "$11\r\nhello world\r\n";
+//! let res = Resp::from_str(string).unwrap();
+//!
+//! assert_eq!(res, Resp::BulkString("hello world".to_owned()));
+//!
+//! use std::io::Cursor;
+//!
+//! let reader = Cursor::new(b"$11\r\nhello world\r\n".to_owned());
+//! let res = Resp::from_reader(reader).unwrap();
+//!
+//! assert_eq!(res, Resp::BulkString("hello world".to_owned()));
+//! ```
+//!
+
 #[deny(missing_docs)]
 
 use crate::ser::SerializeResp;
