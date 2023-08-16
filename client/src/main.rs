@@ -2,9 +2,9 @@ use clap::{Parser, Subcommand};
 use eyre::Result;
 use log::debug;
 use resp::Resp;
-use std::{
-    io::{BufReader, BufWriter, Read, Write},
+use tokio::{
     net::TcpStream,
+    io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter}
 };
 
 #[derive(Parser)]
@@ -42,7 +42,8 @@ enum Command {
     Ping,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     env_logger::init();
 
     debug!("parsing cli commands");
@@ -51,20 +52,20 @@ fn main() -> Result<()> {
     let host = "localhost:6379";
     debug!("Connecting to server on {}", host);
 
-    let reader = TcpStream::connect(host).expect("Failed to connect to Tcp host");
-    let writer = reader.try_clone()?;
+    let mut stream = TcpStream::connect(host).await.expect("Failed to connect to Tcp host");
 
-    let reader = BufReader::new(reader);
-    let writer = BufWriter::new(writer);
+    let writer = BufWriter::new(&mut stream);
 
-    send_command(args.command, writer)?;
+    send_command(args.command, writer).await?;
 
-    read_response(reader)?;
+    let reader = BufReader::new(&mut stream);
+
+    read_response(reader).await?;
 
     Ok(())
 }
 
-fn send_command(command: Command, mut writer: BufWriter<TcpStream>) -> Result<()> {
+async fn send_command(command: Command, mut writer: impl AsyncWriteExt + Unpin) -> Result<()> {
     debug!("Sending command {:?}", command);
     match command {
         Command::Set { key, value } => {
@@ -75,7 +76,7 @@ fn send_command(command: Command, mut writer: BufWriter<TcpStream>) -> Result<()
             ]);
 
             debug!("Sending SET {} {}", key, value);
-            writer.write_all(set.to_string().as_bytes())?;
+            writer.write_all(set.to_string().as_bytes()).await?;
             debug!("Sent SET {} {}", key, value);
         }
         Command::Get { key } => {
@@ -85,7 +86,7 @@ fn send_command(command: Command, mut writer: BufWriter<TcpStream>) -> Result<()
             ]);
 
             debug!("Sending GET {}", key);
-            writer.write_all(get.to_string().as_bytes())?;
+            writer.write_all(get.to_string().as_bytes()).await?;
             debug!("Sent GET {}", key);
         }
         Command::Remove { key } => {
@@ -95,27 +96,27 @@ fn send_command(command: Command, mut writer: BufWriter<TcpStream>) -> Result<()
             ]);
 
             debug!("Sending REMOVE {}", key);
-            writer.write_all(rm.to_string().as_bytes())?;
+            writer.write_all(rm.to_string().as_bytes()).await?;
             debug!("Sent REMOVE {}", key);
         }
         Command::Ping => {
             let ping = Resp::SimpleString("PING".to_owned());
             debug!("Sending PING");
 
-            writer.write_all(ping.to_string().as_bytes())?;
+            writer.write_all(ping.to_string().as_bytes()).await?;
             debug!("Sent PING");
         }
     }
 
-    writer.flush()?;
+    writer.flush().await?;
 
     Ok(())
 }
 
-fn read_response(reader: impl Read) -> Result<()> {
+async fn read_response(reader: impl AsyncReadExt + Send + Sync + Unpin) -> Result<()> {
     debug!("Reading reply");
 
-    let resp: Resp = Resp::from_reader(reader)?;
+    let resp: Resp = Resp::from_reader(reader).await?;
 
     debug!("Converted response into RESP");
 
