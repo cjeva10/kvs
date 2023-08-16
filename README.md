@@ -12,14 +12,13 @@ So far, I've completed the following work.
 
  - Log-file structured storage.
  - Log compaction on threshold of dead data.
- - Synchronous signle-thread server to handle commands over TCP
+ - Asynchronous server and client pass messages over TCP (Tokio)
+ - Asynchronous db access
  - Simple client CLI for sending messages to server.
  - Redis Serialization protocol from-scratch for wire messages.
- - Unit test coverage of existing work
+ - Unit testing
 
 ## Roadmap
 
- - Concurrent server implementation
- - Asynchronous IO on db files
  - Key sharding
  - Distributed consensus with Raft
