@@ -118,7 +118,7 @@ async fn send_command(command: Command, mut writer: impl AsyncWriteExt + Unpin) 
 async fn read_response(reader: impl AsyncReadExt + Send + Sync + Unpin) -> Result<()> {
     debug!("Reading reply");
 
-    let resp: Resp = Resp::from_reader(reader).await?;
+    let resp: Resp = Resp::from_reader_async(reader).await?;
 
     debug!("Converted response into RESP");
 

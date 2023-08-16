@@ -18,14 +18,14 @@ impl StartsWith for VecDeque<u8> {
     }
 }
 
-pub struct ReaderParser<R: AsyncReadExt + Unpin + Sync + Send> {
+pub struct AsyncReaderParser<R: AsyncReadExt + Unpin + Sync + Send> {
     reader: R,
     buf: VecDeque<u8>,
 }
 
-impl<R: AsyncReadExt + Unpin + Sync + Send> ReaderParser<R> {
+impl<R: AsyncReadExt + Unpin + Sync + Send> AsyncReaderParser<R> {
     pub fn from_reader(reader: R) -> Self {
-        ReaderParser {
+        AsyncReaderParser {
             reader,
             buf: VecDeque::new(),
         }
@@ -101,7 +101,7 @@ impl<R: AsyncReadExt + Unpin + Sync + Send> ReaderParser<R> {
 }
 
 #[async_trait]
-impl<R: AsyncReadExt + Send + Unpin + Sync> ParseResp for ReaderParser<R> {
+impl<R: AsyncReadExt + Send + Unpin + Sync> ParseResp for AsyncReaderParser<R> {
     async fn parse_any(&mut self) -> Result<Resp> {
         match self.peek_char().await? {
             b'$' => self.parse_bulk_string().await,
@@ -269,7 +269,7 @@ mod tests {
         let mut vec: Vec<u8> = Vec::from(b"\rabc\n".to_owned());
         let reader = Cursor::new(&mut vec);
 
-        let mut deserializer = ReaderParser::from_reader(reader);
+        let mut deserializer = AsyncReaderParser::from_reader(reader);
 
         let h = deserializer.consume_crlf().await.err().unwrap();
 
@@ -281,7 +281,7 @@ mod tests {
         let mut vec: Vec<u8> = Vec::from(b"hello world\n".to_owned());
         let reader = Cursor::new(&mut vec);
 
-        let mut deserializer = ReaderParser::from_reader(reader);
+        let mut deserializer = AsyncReaderParser::from_reader(reader);
 
         let h = deserializer.peek_char().await.unwrap();
 
@@ -293,7 +293,7 @@ mod tests {
         let input = b"hello world\n".to_owned();
         let reader = Cursor::new(input);
 
-        let mut deserializer = ReaderParser::from_reader(reader);
+        let mut deserializer = AsyncReaderParser::from_reader(reader);
 
         for i in 0..b"hello world\n".len() {
             let h: u8 = deserializer.next_char().await.unwrap();
@@ -309,7 +309,7 @@ mod tests {
     async fn test_parse_simple_string() {
         let input = b"+hello world\r\n";
 
-        let mut deserializer = ReaderParser::from_reader(&input[..]);
+        let mut deserializer = AsyncReaderParser::from_reader(&input[..]);
 
         let res = deserializer.parse_simple_string().await.unwrap();
 
@@ -320,7 +320,7 @@ mod tests {
     async fn test_parse_error() {
         let input = b"-hello world\r\n";
 
-        let mut deserializer = ReaderParser::from_reader(&input[..]);
+        let mut deserializer = AsyncReaderParser::from_reader(&input[..]);
 
         let res = deserializer.parse_error().await.unwrap();
 
@@ -331,7 +331,7 @@ mod tests {
     async fn test_parse_integer() {
         let input = b":10\r\n";
 
-        let mut deserializer = ReaderParser::from_reader(&input[..]);
+        let mut deserializer = AsyncReaderParser::from_reader(&input[..]);
 
         let res = deserializer.parse_integer().await.unwrap();
 
@@ -341,7 +341,7 @@ mod tests {
     #[tokio::test]
     async fn test_parse_bad_integer() {
         let pos = b":10abc\r\n";
-        let err = Resp::from_reader(&pos[..]).await.err().unwrap();
+        let err = Resp::from_reader_async(&pos[..]).await.err().unwrap();
         assert_eq!(err, Error::ExpectedInteger)
     }
 
@@ -349,7 +349,7 @@ mod tests {
     async fn test_parse_bulk_string() {
         let input = b"$11\r\nhello world\r\n";
 
-        let mut deserializer = ReaderParser::from_reader(&input[..]);
+        let mut deserializer = AsyncReaderParser::from_reader(&input[..]);
 
         // peek first to fill the buffer
         deserializer.peek_char().await.unwrap();
@@ -362,7 +362,7 @@ mod tests {
     #[tokio::test]
     async fn test_parse_bad_length() {
         let s = b"$5abc\r\nhello\r\n";
-        let err = Resp::from_reader(&s[..]).await.err().unwrap();
+        let err = Resp::from_reader_async(&s[..]).await.err().unwrap();
         assert_eq!(err, Error::ExpectedLength)
     }
 
@@ -370,7 +370,7 @@ mod tests {
     async fn test_parse_array() {
         let input = b"*2\r\n+hello\r\n+world\r\n";
 
-        let mut deserializer = ReaderParser::from_reader(&input[..]);
+        let mut deserializer = AsyncReaderParser::from_reader(&input[..]);
 
         // peek first to fill the buffer
         deserializer.peek_char().await.unwrap();
@@ -389,7 +389,7 @@ mod tests {
     async fn test_parse_nested_array() {
         let input = b"*2\r\n*2\r\n+hello\r\n+world\r\n:10\r\n";
 
-        let mut deserializer = ReaderParser::from_reader(&input[..]);
+        let mut deserializer = AsyncReaderParser::from_reader(&input[..]);
 
         // peek first to fill the buffer
         deserializer.peek_char().await.unwrap();
@@ -408,7 +408,7 @@ mod tests {
     #[tokio::test]
     async fn test_weird_characters() {
         let input = b"++//$$-+*\n\t\n !@#$%^&*()_\\  \r\n";
-        let mut deserializer = ReaderParser::from_reader(&input[..]);
+        let mut deserializer = AsyncReaderParser::from_reader(&input[..]);
 
         let res = deserializer.parse_simple_string().await.unwrap();
 
@@ -420,7 +420,7 @@ mod tests {
     #[tokio::test]
     async fn test_invalid_prefix() {
         let input = b"bad";
-        let res = Resp::from_reader(&input[..]).await.err().unwrap();
+        let res = Resp::from_reader_async(&input[..]).await.err().unwrap();
         let expected = Error::InvalidPrefix;
 
         assert_eq!(res, expected);
@@ -429,7 +429,7 @@ mod tests {
     #[tokio::test]
     async fn test_parse_bytes() {
         let bytes = b"+hello world\r\n";
-        let res = Resp::from_reader(&bytes[..]).await.unwrap();
+        let res = Resp::from_reader_async(&bytes[..]).await.unwrap();
         let expected = Resp::SimpleString("hello world".to_owned());
 
         assert_eq!(res, expected);
@@ -438,7 +438,7 @@ mod tests {
     #[tokio::test]
     async fn test_bad_bytes() {
         let shift_jis = b"\x82\xe6\x82\xa8\x82\xb1\x82\xbb";
-        let res = Resp::from_reader(&shift_jis[..]).await.err().unwrap();
+        let res = Resp::from_reader_async(&shift_jis[..]).await.err().unwrap();
         let expected = "encountered an invalid prefix".to_owned();
 
         assert_eq!(res.to_string(), expected);

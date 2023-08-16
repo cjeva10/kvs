@@ -6,7 +6,7 @@ mod byte;
 mod reader;
 
 use byte::ByteParser;
-use reader::ReaderParser;
+use reader::AsyncReaderParser;
 
 use log::debug;
 
@@ -49,7 +49,7 @@ impl Resp {
     /// use crate::resp::Resp;
     ///
     /// let input = b"*2\r\n+hello\r\n+world\r\n";
-    /// let resp = Resp::from_reader(&input[..]).await.unwrap();
+    /// let resp = Resp::from_reader_async(&input[..]).await.unwrap();
     /// let expected = Resp::Array(vec![
     ///     Resp::SimpleString("hello".to_owned()),
     ///     Resp::SimpleString("world".to_owned()),
@@ -58,8 +58,8 @@ impl Resp {
     /// assert_eq!(resp, expected);
     /// # })
     /// ```
-    pub async fn from_reader<R: AsyncReadExt + Send + Unpin + Sync>(reader: R) -> Result<Self> {
-        let mut deserializer = ReaderParser::from_reader(reader);
+    pub async fn from_reader_async<R: AsyncReadExt + Send + Unpin + Sync>(reader: R) -> Result<Self> {
+        let mut deserializer = AsyncReaderParser::from_reader(reader);
 
         let res = deserializer.parse_any().await?;
 

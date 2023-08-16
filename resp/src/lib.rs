@@ -15,7 +15,7 @@
 //! use resp::Resp;
 //!
 //! let hello = Resp::SimpleString("hello world".to_owned());
-//! assert_eq!(format!("{}", hello), "+hello world\r\n".to_string());
+//! assert_eq!(format!("{}", hello), "hello world".to_string());
 //! ```
 //!
 //! ## Parse `Resp` from a `&[u8]`, `&str` and a reader
@@ -37,7 +37,7 @@
 //! use std::io::Cursor;
 //!
 //! let reader = Cursor::new(b"$11\r\nhello world\r\n".to_owned());
-//! let res = Resp::from_reader(reader).await.unwrap();
+//! let res = Resp::from_reader_async(reader).await.unwrap();
 //!
 //! assert_eq!(res, Resp::BulkString("hello world".to_owned()));
 //! # })

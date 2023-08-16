@@ -76,7 +76,7 @@ async fn handle_connection(mut stream: TcpStream, kvs: Arc<Mutex<KvStore>>) -> R
 
     trace!("Reading stream into buffer");
 
-    let resp = Resp::from_reader(reader).await?;
+    let resp = Resp::from_reader_async(reader).await?;
 
     let writer = BufWriter::new(&mut stream);
 
