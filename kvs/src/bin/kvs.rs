@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use eyre::Result;
-use kvs::kvstore::KvStore;
+use kvs::{KvEngine, KvStore};
 use std::{env::current_dir, process::exit};
 
 #[derive(Parser)] // requires `derive` feature
@@ -34,7 +34,7 @@ enum Commands {
 
 fn main() -> Result<()> {
     let args = Cli::parse();
-    let mut store = KvStore::open(current_dir()?)?;
+    let store = KvStore::open(current_dir()?)?;
 
     match args.command {
         Commands::Set { key, value } => {
@@ -59,9 +59,9 @@ fn main() -> Result<()> {
                 None => {
                     println!("Key not found");
                     exit(1)
-                },
+                }
             }
-            
+
             Ok(())
         }
     }
