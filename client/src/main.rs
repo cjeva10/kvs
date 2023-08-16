@@ -123,6 +123,7 @@ async fn read_response(reader: impl AsyncReadExt + Send + Sync + Unpin) -> Resul
     debug!("Converted response into RESP");
 
     debug!("Response = {}", resp);
+    println!("{}", resp);
 
     Ok(())
 }
