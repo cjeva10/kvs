@@ -10,6 +10,7 @@ use std::{
     io::{BufReader, BufWriter, Read, Seek, Write},
     path::PathBuf,
 };
+use log::info;
 use thiserror::Error;
 
 // compact when there is 1 MB compactable
@@ -163,6 +164,7 @@ impl KvStore {
         }
 
         if self.compactable > COMPACT_THRESHOLD {
+            info!("Compacting database: {} compactable", self.compactable);
             self.compact()?;
         }
 

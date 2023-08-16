@@ -1,0 +1,1204 @@
+    Finished dev [unoptimized + debuginfo] target(s) in 0.03s
+     Running `/home/chris/coding/rust/kvs/target/debug/redis-server`
+[2023-08-16T14:45:47Z INFO  redis_server] Opening KvStore at /home/chris/coding/rust/kvs/server/data
+[2023-08-16T14:45:47Z INFO  redis_server] Starting TcpListener at 127.0.0.1:6379
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:47962
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:47966
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:47980
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:47996
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48010
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48024
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48026
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48030
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48032
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48046
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48048
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48050
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48060
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48064
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48080
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48084
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48088
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48104
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48112
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48114
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48120
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48122
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48126
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48134
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48146
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48160
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48176
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48188
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48192
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48194
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48200
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48216
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48218
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48228
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48242
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48246
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48260
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48270
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48278
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48286
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48296
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48306
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48312
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48320
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48330
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48332
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48348
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48356
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48360
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48370
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48374
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48376
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48392
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48406
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48410
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48416
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48424
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48434
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48450
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48456
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48458
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48464
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48468
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48484
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48488
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48490
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48504
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48520
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48522
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48538
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48546
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48556
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48568
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48580
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48596
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48600
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48612
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48616
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48620
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48628
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48644
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48648
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48654
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48660
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48668
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48682
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48696
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48702
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48712
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48714
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48720
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48728
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48744
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48748
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:48754
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:39184
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:39198
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:39214
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:39228
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    
+[2023-08-16T14:45:49Z DEBUG redis_server] Received client request
+[2023-08-16T14:45:49Z INFO  redis_server] Received request from 127.0.0.1:39232
+[2023-08-16T14:45:49Z TRACE redis_server] creating Reader and Writer
+[2023-08-16T14:45:49Z TRACE redis_server] Reading stream into buffer
+[2023-08-16T14:45:49Z TRACE redis_server] Convert buffer into RESP
+[2023-08-16T14:45:49Z DEBUG resp::de] Parsed result = Array([BulkString("SET"), BulkString("hello"), BulkString("world")])
+[2023-08-16T14:45:49Z DEBUG resp::de] Deserializer buffer is empty, returning
+[2023-08-16T14:45:49Z DEBUG redis_server] Received array request [BulkString("SET"), BulkString("hello"), BulkString("world")]
+[2023-08-16T14:45:49Z DEBUG redis_server] Setting hello to world
+[2023-08-16T14:45:49Z DEBUG redis_server] Set hello to world successfully
+[2023-08-16T14:45:49Z TRACE redis_server] Sent reply +OK
+    

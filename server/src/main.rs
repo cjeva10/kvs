@@ -19,10 +19,11 @@ enum Command {
 fn main() -> Result<()> {
     env_logger::init();
 
-    let path = current_dir()?;
+    let mut path = current_dir()?;
+    path.push("data");
 
     info!("Opening KvStore at {}", path.to_str().unwrap());
-    let kvs = Arc::new(Mutex::new(KvStore::open(current_dir()?)?));
+    let kvs = Arc::new(Mutex::new(KvStore::open(path)?));
 
     let addr = "127.0.0.1:6379";
 
