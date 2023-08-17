@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use eyre::Result;
 use log::debug;
 use resp::{Resp, SerializeResp};
+use std::net::SocketAddr;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
     net::TcpStream,
@@ -18,6 +19,9 @@ use tokio::{
 struct Cli {
     #[command(subcommand)]
     command: Command,
+
+    #[arg(long, default_value = "127.0.0.1:6379")]
+    host: SocketAddr,
 }
 
 #[derive(Debug, Subcommand, Clone)]
@@ -49,12 +53,13 @@ async fn main() -> Result<()> {
     debug!("parsing cli commands");
     let args = Cli::parse();
 
-    let host = "localhost:6379";
+    let host = args.host;
+
     debug!("Connecting to server on {}", host);
 
     let mut stream = TcpStream::connect(host)
         .await
-        .expect("Failed to connect to Tcp host");
+        .expect(&format!("Failed to connect to Tcp host {}", host)[..]);
 
     let writer = BufWriter::new(&mut stream);
 
