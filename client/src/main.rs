@@ -9,28 +9,32 @@ use tokio::{
 };
 
 #[derive(Parser)]
-#[command(name = "kvs-client", rename_all = "snake_case")]
 #[command(
-    about = "A client for sending Redis messages over the wire",
+    about = "A CLI client for sending commands to a kvs server",
     bin_name = "kvs",
-    author,
-    version
+    version,
+    name = "kvs-client",
+    rename_all = "snake_case",
+    author = "Chris E. <cjevanko@gmail.com>"
 )]
 struct Cli {
     #[command(subcommand)]
     command: Command,
 
+    /// The address + port of the db server
     #[arg(long, default_value = "127.0.0.1:6379")]
     host: SocketAddr,
 }
 
 #[derive(Debug, Subcommand, Clone)]
 enum Command {
+    /// Get value of a key
     #[command(arg_required_else_help = true)]
     Get {
         #[arg(value_name = "key")]
         key: String,
     },
+    /// Set the key to a given value
     #[command(arg_required_else_help = true)]
     Set {
         #[arg(value_name = "key")]
@@ -38,11 +42,13 @@ enum Command {
         #[arg(value_name = "value")]
         value: String,
     },
+    /// Remove a key
     #[command(arg_required_else_help = true)]
     Remove {
         #[arg(value_name = "key")]
         key: String,
     },
+    /// Ping the db server host
     Ping,
 }
 
