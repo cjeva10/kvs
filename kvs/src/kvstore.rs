@@ -1,5 +1,5 @@
 use crate::{KvEngine, KvsError, Result};
-use log::info;
+use log::{info, trace};
 use resp::{Resp, SerializeResp};
 use std::{
     collections::BTreeMap,
@@ -67,6 +67,7 @@ struct LogPointer {
     size: usize,
 }
 
+#[derive(Debug)]
 enum LogCommand {
     Set { key: String, value: String },
     Rm { key: String },
@@ -171,8 +172,10 @@ impl InnerKvStore {
         let mut iterator = deserializer.into_iter();
 
         // loop over all the items and rebuild the index
+        trace!("looping over db file");
         let mut offset = 0;
         while let Some(resp) = iterator.next() {
+            trace!("Found cmd = {}, len = {}", resp, resp.serialize().len());
             let cmd = resp.try_into()?;
 
             let key = match cmd {
@@ -181,6 +184,7 @@ impl InnerKvStore {
             };
 
             let new_offset = iterator.byte_offset();
+            trace!("byte_offset = {}, old_offset = {}", new_offset, offset);
             let ptr = LogPointer {
                 offset,
                 size: new_offset - offset,
