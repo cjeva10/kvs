@@ -113,11 +113,17 @@ impl Resp {
     fn stringify_list(list: &Vec<Resp>) -> String {
         let mut out = String::new();
 
+        match list.len() {
+            0 => return "[]".to_string(),
+            _ => (),
+        }
+
         out.push('[');
         for l in list {
             out.push_str(&l.stringify());
             out.push(',');
         }
+        out.pop();
         out.push(']');
 
         out
