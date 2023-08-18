@@ -42,6 +42,21 @@ impl<R: Read> Iterator for ReaderParserIntoIter<R> {
     }
 }
 
+trait StartsWithMut {
+    fn starts_with_mut(&mut self, needle: &[u8]) -> Result<bool>;
+}
+
+impl<R: Read> StartsWithMut for ReaderParser<R> {
+    fn starts_with_mut(&mut self, needle: &[u8]) -> Result<bool> {
+        if self.buf.len() < needle.len() {
+            self.fill_buf()?
+        }
+
+        trace!("Calling buf.starts_with({})", from_utf8(needle)?);
+        Ok(self.buf.starts_with(needle))
+    }
+}
+
 impl<R: Read> ReaderParser<R> {
     pub fn from_reader(reader: R) -> Self {
         ReaderParser {
@@ -56,13 +71,17 @@ impl<R: Read> ReaderParser<R> {
     }
 
     fn peek_char(&mut self) -> Result<u8> {
-        self.fill_buf()?;
+        if self.buf.len() == 0 {
+            self.fill_buf()?;
+        }
 
         Ok(self.buf.front().copied().unwrap())
     }
 
     fn next_char(&mut self) -> Result<u8> {
-        self.fill_buf()?;
+        if self.buf.len() == 0 {
+            self.fill_buf()?;
+        }
 
         self.offset += 1;
 
@@ -70,18 +89,16 @@ impl<R: Read> ReaderParser<R> {
     }
 
     fn fill_buf(&mut self) -> Result<()> {
-        if self.buf.len() == 0 {
-            let mut tmp = [0; 128];
-            let n = match self.reader.read(&mut tmp) {
-                Ok(n) => n,
-                Err(_) => return Err(Error::ReaderFailed),
-            };
-            if n == 0 {
-                return Err(Error::Eof);
-            }
-            for i in 0..n {
-                self.buf.push_back(tmp[i]);
-            }
+        let mut tmp = [0; 128];
+        let n = match self.reader.read(&mut tmp) {
+            Ok(n) => n,
+            Err(_) => return Err(Error::ReaderFailed),
+        };
+        if n == 0 {
+            return Err(Error::Eof);
+        }
+        for i in 0..n {
+            self.buf.push_back(tmp[i]);
         }
 
         Ok(())
@@ -228,7 +245,7 @@ impl<R: Read> ParseResp for ReaderParser<R> {
     fn parse_bulk_string(&mut self) -> Result<Resp> {
         self.peek_char()?;
 
-        if self.buf.starts_with(b"$-1\r\n") {
+        if self.starts_with_mut(b"$-1\r\n")? {
             return self.parse_null();
         }
 
@@ -255,7 +272,7 @@ impl<R: Read> ParseResp for ReaderParser<R> {
     }
 
     fn parse_array(&mut self) -> Result<Resp> {
-        if self.buf.starts_with(b"*-1\r\n") {
+        if self.starts_with_mut(b"*-1\r\n")? {
             return self.parse_null_array();
         }
 
@@ -278,7 +295,7 @@ impl<R: Read> ParseResp for ReaderParser<R> {
     }
 
     fn parse_null_array(&mut self) -> Result<Resp> {
-        if self.buf.starts_with(b"*-1\r\n") {
+        if self.starts_with_mut(b"*-1\r\n")? {
             for _ in 0..b"*-1\r\n".len() {
                 self.next_char()?;
             }
@@ -488,10 +505,10 @@ mod tests {
         assert_eq!(res.next().unwrap(), Resp::SimpleString("hello".to_owned()));
         assert_eq!(res.next().unwrap(), Resp::Integer(10));
         assert_eq!(res.next().unwrap(), Resp::BulkString("hello".to_owned()));
-        assert_eq!(res.next().unwrap(), Resp::Array(vec![
-            Resp::Integer(10),
-            Resp::Integer(10),
-        ]));
+        assert_eq!(
+            res.next().unwrap(),
+            Resp::Array(vec![Resp::Integer(10), Resp::Integer(10),])
+        );
     }
 
     #[test]
