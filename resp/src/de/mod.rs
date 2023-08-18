@@ -221,3 +221,7 @@ impl StartsWith for VecDeque<u8> {
         self.len() >= n && needle == &start
     }
 }
+
+trait StartsWithMut {
+    fn starts_with_mut(&mut self, needle: &[u8]) -> Result<bool>;
+}

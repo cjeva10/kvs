@@ -1,8 +1,7 @@
 use crate::{
-    de::{ParseResp, StartsWith},
+    de::{ParseResp, StartsWith, StartsWithMut},
     Error, Resp, Result,
 };
-use async_trait::async_trait;
 use log::trace;
 use std::{collections::VecDeque, io::Read, str::from_utf8};
 
@@ -40,10 +39,6 @@ impl<R: Read> Iterator for ReaderParserIntoIter<R> {
             Err(_) => None,
         }
     }
-}
-
-trait StartsWithMut {
-    fn starts_with_mut(&mut self, needle: &[u8]) -> Result<bool>;
 }
 
 impl<R: Read> StartsWithMut for ReaderParser<R> {
@@ -139,7 +134,6 @@ impl<R: Read> ReaderParser<R> {
     }
 }
 
-#[async_trait]
 impl<R: Read> ParseResp for ReaderParser<R> {
     fn parse_any(&mut self) -> Result<Resp> {
         match self.peek_char()? {
