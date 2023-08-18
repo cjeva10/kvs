@@ -5,6 +5,17 @@ use crate::{
 use log::trace;
 use std::{collections::VecDeque, io::Read, str::from_utf8};
 
+/// Parser for a reader
+///
+/// # Examples
+///
+/// ## Use as an Iterator
+/// 
+/// ```rust
+/// use resp::ReaderParser;
+///
+/// 
+/// ```
 pub struct ReaderParser<R: Read> {
     reader: R,
     buf: VecDeque<u8>,
@@ -237,8 +248,6 @@ impl<R: Read> ParseResp for ReaderParser<R> {
     }
 
     fn parse_bulk_string(&mut self) -> Result<Resp> {
-        self.peek_char()?;
-
         if self.starts_with_mut(b"$-1\r\n")? {
             return self.parse_null();
         }
@@ -258,7 +267,6 @@ impl<R: Read> ParseResp for ReaderParser<R> {
         for _ in 0..len {
             b.push(self.next_char()?);
         }
-        self.offset += len;
 
         self.consume_crlf()?;
 
@@ -525,7 +533,7 @@ mod tests {
         assert_eq!(res.byte_offset(), expected);
 
         let _ = res.next().unwrap();
-        expected += "*2\r\n$2\r\nRM\r\n$5\r\nhello\r\n".len();
+        expected = input.len();
 
         assert_eq!(res.byte_offset(), expected);
     }
