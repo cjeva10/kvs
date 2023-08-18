@@ -5,16 +5,30 @@ use crate::{
 use log::trace;
 use std::{collections::VecDeque, io::Read, str::from_utf8};
 
-/// Parser for a reader
+/// Synchronous parser for types that implement `std::io::Read`
 ///
-/// # Examples
+/// `ReaderParser` implements `IntoIter`, which makes it easy to pull multiple
+/// `Resp` values iteratively from a byte stream, for example when parsing a file.
 ///
-/// ## Use as an Iterator
+/// To parse a single value, it is better to use `Resp::from_reader` directly
+///
+/// ## Examples
 /// 
 /// ```rust
-/// use resp::ReaderParser;
+/// use resp::{ReaderParser, Resp};
 ///
-/// 
+/// let input = b"+hello\r\n+world\r\n:10\r\n";
+///
+/// let mut iterator = ReaderParser::from_reader(&input[..]).into_iter();
+///
+/// let hello = iterator.next().unwrap();
+/// assert_eq!(hello, Resp::SimpleString("hello".to_owned()));
+///
+/// let world = iterator.next().unwrap();
+/// assert_eq!(world, Resp::SimpleString("world".to_owned()));
+///
+/// let ten = iterator.next().unwrap();
+/// assert_eq!(ten, Resp::Integer(10));
 /// ```
 pub struct ReaderParser<R: Read> {
     reader: R,
@@ -22,11 +36,11 @@ pub struct ReaderParser<R: Read> {
     offset: usize,
 }
 
-pub struct ReaderParserIntoIter<R: Read> {
+pub struct ReaderParserIter<R: Read> {
     inner: ReaderParser<R>,
 }
 
-impl<R: Read> ReaderParserIntoIter<R> {
+impl<R: Read> ReaderParserIter<R> {
     pub fn byte_offset(&self) -> usize {
         self.inner.offset
     }
@@ -34,14 +48,14 @@ impl<R: Read> ReaderParserIntoIter<R> {
 
 impl<R: Read> IntoIterator for ReaderParser<R> {
     type Item = Resp;
-    type IntoIter = ReaderParserIntoIter<R>;
+    type IntoIter = ReaderParserIter<R>;
 
     fn into_iter(self) -> Self::IntoIter {
-        ReaderParserIntoIter { inner: self }
+        ReaderParserIter { inner: self }
     }
 }
 
-impl<R: Read> Iterator for ReaderParserIntoIter<R> {
+impl<R: Read> Iterator for ReaderParserIter<R> {
     type Item = Resp;
 
     fn next(&mut self) -> Option<Resp> {
