@@ -3,6 +3,7 @@ use crate::{
     Error, Resp, Result,
 };
 use async_trait::async_trait;
+use log::trace;
 use std::{collections::VecDeque, io::Read, str::from_utf8};
 
 pub struct ReaderParser<R: Read> {
@@ -239,7 +240,13 @@ impl<R: Read> ParseResp for ReaderParser<R> {
 
         self.consume_crlf()?;
 
-        let b: Vec<u8> = self.buf.drain(..len).collect();
+        trace!("draining bulk string");
+        // Note this doesn't work because if len > buf.len() we are out of bounds
+        // let b: Vec<u8> = self.buf.drain(..len).collect();
+        let mut b = Vec::new();
+        for _ in 0..len {
+            b.push(self.next_char()?);
+        }
         self.offset += len;
 
         self.consume_crlf()?;
