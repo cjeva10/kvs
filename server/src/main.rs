@@ -1,3 +1,4 @@
+use clap::Parser;
 use eyre::Result;
 use kvs::{KvEngine, KvStore};
 use log::{debug, error, info, trace};
@@ -17,9 +18,19 @@ enum Command {
     Remove { key: String },
 }
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// The address & port to listen on
+    #[arg(short, long, default_value = "127.0.0.1:6379")]
+    addr: SocketAddr,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
+
+    let cli = Cli::parse();
 
     let mut path = current_dir()?;
     path.push("data");
@@ -27,7 +38,7 @@ async fn main() -> Result<()> {
     info!("Opening KvStore at {}", path.to_str().unwrap());
     let kvs = KvStore::open(path)?;
 
-    let addr = "127.0.0.1:6379";
+    let addr = cli.addr;
 
     info!("Starting TcpListener at {}", addr);
     let listener = TcpListener::bind(addr)
