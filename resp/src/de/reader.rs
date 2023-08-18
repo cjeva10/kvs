@@ -54,11 +54,11 @@ impl<R: Read> Iterator for ReaderParserIntoIter<R> {
 
 impl<R: Read> StartsWithMut for ReaderParser<R> {
     fn starts_with_mut(&mut self, needle: &[u8]) -> Result<bool> {
+        trace!("starts_with_mut({})", from_utf8(needle)?);
         if self.buf.len() < needle.len() {
             self.fill_buf()?
         }
 
-        trace!("Calling buf.starts_with({})", from_utf8(needle)?);
         Ok(self.buf.starts_with(needle))
     }
 }
@@ -260,7 +260,7 @@ impl<R: Read> ParseResp for ReaderParser<R> {
 
         self.consume_crlf()?;
 
-        trace!("draining bulk string");
+        trace!("parse bulk string: self = {:?}, len = {}", self.buf.iter().map(|x| *x as char).collect::<Vec<char>>(), len);
         // Note this doesn't work because if len > buf.len() we are out of bounds
         // let b: Vec<u8> = self.buf.drain(..len).collect();
         let mut b = Vec::new();

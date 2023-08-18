@@ -1,7 +1,7 @@
 use crate::{Error, Resp, Result};
 use async_trait::async_trait;
 use log::trace;
-use std::{collections::VecDeque, io::Read};
+use std::{collections::VecDeque, io::Read, str::from_utf8};
 use tokio::io::AsyncReadExt;
 
 mod async_reader;
@@ -212,11 +212,11 @@ trait StartsWith {
 
 impl StartsWith for VecDeque<u8> {
     fn starts_with(&self, needle: &[u8]) -> bool {
+        trace!("VecDeque.starts_with({})", from_utf8(needle).unwrap());
         let n = needle.len();
         if n != self.len() {
             return false;
         }
-        trace!("vec = {:?}, n = {}", self.iter().map(|x| *x as char).collect::<Vec<char>>(), n);
         let start: Vec<u8> = self.range(..n).copied().collect();
         self.len() >= n && needle == &start
     }
