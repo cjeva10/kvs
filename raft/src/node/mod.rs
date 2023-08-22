@@ -1,12 +1,16 @@
-use crate::rpc::{AppendEntriesArgs, AppendEntriesReply, RequestVoteArgs, RequestVoteReply};
-use crate::Rpc;
 use crate::{Error, Result};
-use async_trait::async_trait;
 use log::debug;
+use raft_rpc::raft_server::{Raft, RaftServer};
+use raft_rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
+use tonic::{transport::Server, Request, Response, Status};
+
+pub mod raft_rpc {
+    tonic::include_proto!("raft");
+}
 
 pub enum NodeStatus {
     Follower,
@@ -14,27 +18,21 @@ pub enum NodeStatus {
     Leader,
 }
 
-#[derive(Clone, Debug)]
-pub struct Log {
-    term: usize,
-    command: String,
-}
-
 struct State {
-    current_term: usize,
-    voted_for: Option<usize>,
-    leader_id: Option<usize>,
+    current_term: u64,
+    voted_for: Option<u64>,
+    leader_id: Option<u64>,
     log: Vec<Log>,
 
-    commit_index: usize,
-    last_applied: usize,
+    commit_index: u64,
+    last_applied: u64,
 
-    next_index: HashMap<usize, usize>,
-    match_index: HashMap<usize, usize>,
+    next_index: HashMap<u64, u64>,
+    match_index: HashMap<u64, u64>,
 
     status: NodeStatus,
 
-    pulses: usize,
+    pulses: u64,
 }
 
 impl State {
@@ -78,124 +76,135 @@ impl Node {
     }
 }
 
-impl Rpc for Node {
-    fn request_vote(&self, args: RequestVoteArgs) -> Result<RequestVoteReply> {
+#[tonic::async_trait]
+impl Raft for Node {
+    async fn request_vote(
+        &self,
+        request: Request<RequestVoteArgs>,
+    ) -> std::result::Result<Response<RequestVoteReply>, Status> {
+        let request = request.into_inner();
+
         let mut reply = RequestVoteReply {
             term: 0,
             vote_granted: false,
         };
 
-        let mut state = self.state.lock().unwrap();
-        if args.term > state.current_term {
-            state.current_term = args.term;
+        let mut state = self.state.lock().map_err(|_| Status::internal("Failed to get state lock"))?;
+
+        if request.term > state.current_term {
+            state.current_term = request.term;
             state.voted_for = None;
             state.status = NodeStatus::Follower;
         }
 
         reply.term = state.current_term;
 
-        if args.term < state.current_term {
+        if request.term < state.current_term {
             debug!(
                 "{}: outdated term, rejected vote: got {}, have {}",
-                self.id, args.term, state.current_term
+                self.id, request.term, state.current_term
             );
             reply.vote_granted = false;
-            return Ok(reply);
+            return Ok(Response::new(reply));
         }
 
-        if state.voted_for == None || state.voted_for == Some(args.candidate_id) {
-            let our_last_index = state.log.len() - 1;
-            let our_last_term = state.log[our_last_index].term;
+        if state.voted_for == None || state.voted_for == Some(request.candidate_id) {
+            let our_last_index = (state.log.len() - 1) as u64;
+            let our_last_term = (state.log[our_last_index as usize].term) as u64;
 
-            if args.last_log_term > our_last_term {
-                debug!("{}: granting vote to {}", self.id, args.candidate_id);
-                state.voted_for = Some(args.candidate_id);
+            if request.last_log_term > our_last_term {
+                debug!("{}: granting vote to {}", self.id, request.candidate_id);
+                state.voted_for = Some(request.candidate_id);
                 reply.vote_granted = true;
                 // TODO: reset election timer here
-            } else if args.last_log_term == our_last_term {
-                if args.last_log_index >= our_last_index {
-                    debug!("{}: granting vote to {}", self.id, args.candidate_id);
-                    state.voted_for = Some(args.candidate_id);
+            } else if request.last_log_term == our_last_term {
+                if request.last_log_index >= our_last_index {
+                    debug!("{}: granting vote to {}", self.id, request.candidate_id);
+                    state.voted_for = Some(request.candidate_id);
                     reply.vote_granted = true;
                     // TODO: reset election timer here
                 } else {
-                    debug!("{}: rejected vote, log outdated: got term {}, index {}, have term {}, index {}", self.id, args.last_log_term, args.last_log_index, our_last_term, our_last_index);
+                    debug!("{}: rejected vote, log outdated: got term {}, index {}, have term {}, index {}", self.id, request.last_log_term, request.last_log_index, our_last_term, our_last_index);
                 }
             }
         } else {
             reply.vote_granted = false;
             debug!(
                 "{}: rejected vote from {}, already voted for {:?}",
-                self.id, args.candidate_id, state.voted_for
+                self.id, request.candidate_id, state.voted_for
             );
         }
 
-        Ok(reply)
+        Ok(Response::new(reply))
     }
 
-    fn append_entries(&self, args: AppendEntriesArgs) -> Result<AppendEntriesReply> {
+    async fn append_entries(
+        &self,
+        request: Request<AppendEntriesArgs>,
+    ) -> std::result::Result<Response<AppendEntriesReply>, Status> {
+        let request = request.into_inner();
         let mut reply = AppendEntriesReply {
             term: 0,
             success: false,
         };
 
-        let mut state = self.state.lock().map_err(|_| Error::FailedLock)?;
+        let mut state = self.state.lock().map_err(|_| Status::internal("Failed to get state lock"))?;
 
         debug!(
             "{}: AppendEntries received from {}",
-            self.id, args.leader_id
+            self.id, request.leader_id
         );
 
-        if args.term > state.current_term {
-            state.current_term = args.term;
+        if request.term > state.current_term {
+            state.current_term = request.term;
             state.voted_for = None;
             state.status = NodeStatus::Follower;
         }
 
         reply.term = state.current_term;
 
-        if args.term < state.current_term {
+        if request.term < state.current_term {
             debug!(
                 "{}: AppendEntries leader term less than ours: got {}, have {}",
-                self.id, args.term, state.current_term
+                self.id, request.term, state.current_term
             );
             reply.success = false;
-            return Ok(reply);
+            return Ok(Response::new(reply));
         }
 
-        if state.log.len() - 1 < args.prev_log_index {
+        if state.log.len() - 1 < request.prev_log_index as usize {
             debug!(
-                "{}: AppendEntries from {}: inconsistent log: our index {}, args.prev_log_index {}",
+                "{}: AppendEntries from {}: inconsistent log: our index {}, request.prev_log_index {}",
                 self.id,
-                args.leader_id,
+                request.leader_id,
                 state.log.len() - 1,
-                args.prev_log_index
+                request.prev_log_index
             );
             reply.success = false;
 
-            return Ok(reply);
+            return Ok(Response::new(reply));
         }
 
-        if state.log[args.prev_log_index].term != args.prev_log_term {
+        if state.log[request.prev_log_index as usize].term != request.prev_log_term {
             debug!(
-                "{}: AppendEntries from {}: inconsistent log: our last term {}, args.prev_log_term {}",
+                "{}: AppendEntries from {}: inconsistent log: our last term {}, request.prev_log_term {}",
                 self.id,
-                args.leader_id,
-                state.log[args.prev_log_term].term,
-                args.prev_log_term,
+                request.leader_id,
+                state.log[request.prev_log_term as usize].term,
+                request.prev_log_term,
             );
             reply.success = false;
 
-            return Ok(reply);
+            return Ok(Response::new(reply));
         }
 
-        let mut idx = args.prev_log_index + 1;
-        for entry in &args.entries {
-            if idx > state.log.len() - 1 {
+        let mut idx: usize = request.prev_log_index as usize + 1;
+        for entry in &request.entries {
+            if idx as usize > state.log.len() - 1 {
                 break;
             }
 
-            if entry.term != state.log[idx].term {
+            if entry.term != state.log[idx].term as u64 {
                 state.log = state.log[..idx].to_vec();
                 break;
             }
@@ -203,29 +212,29 @@ impl Rpc for Node {
             idx += 1;
         }
 
-        idx = args.prev_log_index + 1;
+        idx = request.prev_log_index as usize + 1;
 
-        for i in 0..args.entries.len() {
+        for i in 0..request.entries.len() {
             if idx + i > state.log.len() - 1 {
-                state.log.append(&mut args.entries[i..].to_vec());
+                state.log.append(&mut request.entries[i..].to_vec());
                 break;
             }
         }
 
-        if args.leader_commit > state.commit_index {
+        if request.leader_commit > state.commit_index {
             let idx_last_new_entry = state.log.len() - 1;
 
-            if idx_last_new_entry < args.leader_commit {
-                state.commit_index = idx_last_new_entry;
+            if idx_last_new_entry < request.leader_commit as usize {
+                state.commit_index = idx_last_new_entry as u64;
             } else {
-                state.commit_index = args.leader_commit;
+                state.commit_index = request.leader_commit;
             }
 
             // TODO: check if we need to apply new entries
         }
 
-        state.voted_for = Some(args.leader_id);
-        state.leader_id = Some(args.leader_id);
+        state.voted_for = Some(request.leader_id);
+        state.leader_id = Some(request.leader_id);
         reply.success = true;
         debug!(
             "{}: AppendEntries successful: Current Log: {:?}, commit_index {}, current leader {:?}",
@@ -234,15 +243,13 @@ impl Rpc for Node {
 
         // TODO: reset election timer
 
-        Ok(reply)
+        Ok(Response::new(reply))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::node::{Log, Node};
-    use crate::rpc::{AppendEntriesArgs, AppendEntriesReply, RequestVoteArgs, RequestVoteReply};
-    use crate::Rpc;
+    use super::*;
 
     fn setup_follower() -> Node {
         let node: Node = Node::new(1, vec![2, 3, 4, 5]).unwrap();
@@ -262,8 +269,8 @@ mod tests {
         node
     }
 
-    #[test]
-    fn request_vote_on_follower_test() {
+    #[tokio::test]
+    async fn request_vote_on_follower_test() {
         let tests: Vec<(RequestVoteArgs, RequestVoteReply)> = vec![
             (
                 RequestVoteArgs {
@@ -318,14 +325,14 @@ mod tests {
         for (args, expected) in tests {
             let follower = setup_follower();
 
-            let reply = follower.request_vote(args).unwrap();
+            let reply = follower.request_vote(Request::new(args)).await.unwrap();
 
-            assert_eq!(reply, expected);
+            assert_eq!(reply.into_inner(), expected);
         }
     }
 
-    #[test]
-    fn append_entries_term_update() {
+    #[tokio::test]
+    async fn append_entries_term_update() {
         let tests: Vec<(AppendEntriesArgs, AppendEntriesReply)> = vec![
             (
                 AppendEntriesArgs {
@@ -341,7 +348,8 @@ mod tests {
                     success: false,
                 },
             ),
-            ( // our log is too short
+            (
+                // our log is too short
                 AppendEntriesArgs {
                     term: 5,
                     leader_commit: 0,
@@ -355,7 +363,8 @@ mod tests {
                     success: false,
                 },
             ),
-            ( // inconsistent term at prev_log_index
+            (
+                // inconsistent term at prev_log_index
                 AppendEntriesArgs {
                     term: 5,
                     leader_commit: 0,
@@ -369,7 +378,8 @@ mod tests {
                     success: false,
                 },
             ),
-            ( // higher term, make sure we update
+            (
+                // higher term, make sure we update
                 AppendEntriesArgs {
                     term: 6,
                     leader_commit: 0,
@@ -383,7 +393,8 @@ mod tests {
                     success: false,
                 },
             ),
-            ( // higher term, make sure we update
+            (
+                // higher term, make sure we update
                 AppendEntriesArgs {
                     term: 6,
                     leader_commit: 0,
@@ -402,9 +413,9 @@ mod tests {
         for (args, expected) in tests {
             let follower = setup_follower();
 
-            let reply = follower.append_entries(args).unwrap();
+            let reply = follower.append_entries(Request::new(args)).await.unwrap();
 
-            assert_eq!(reply, expected);
+            assert_eq!(reply.into_inner(), expected);
         }
     }
 }
