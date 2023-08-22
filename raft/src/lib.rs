@@ -5,8 +5,4 @@ mod rpc;
 mod error;
 
 pub use error::{Error, Result};
-pub use rpc::RaftRPC;
-
-#[cfg(test)]
-mod tests {
-}
+pub use rpc::Rpc;

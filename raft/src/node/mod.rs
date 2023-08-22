@@ -1,5 +1,5 @@
 use crate::rpc::{AppendEntriesArgs, AppendEntriesReply, RequestVoteArgs, RequestVoteReply};
-use crate::RaftRPC;
+use crate::Rpc;
 use crate::{Error, Result};
 use async_trait::async_trait;
 use log::debug;
@@ -78,7 +78,7 @@ impl Node {
     }
 }
 
-impl RaftRPC for Node {
+impl Rpc for Node {
     fn request_vote(&self, args: RequestVoteArgs) -> Result<RequestVoteReply> {
         let mut reply = RequestVoteReply {
             term: 0,
@@ -241,8 +241,8 @@ impl RaftRPC for Node {
 #[cfg(test)]
 mod tests {
     use crate::node::{Log, Node};
-    use crate::rpc::{RequestVoteArgs, RequestVoteReply};
-    use crate::RaftRPC;
+    use crate::rpc::{AppendEntriesArgs, AppendEntriesReply, RequestVoteArgs, RequestVoteReply};
+    use crate::Rpc;
 
     fn setup_follower() -> Node {
         let node: Node = Node::new(1, vec![2, 3, 4, 5]).unwrap();
@@ -319,6 +319,90 @@ mod tests {
             let follower = setup_follower();
 
             let reply = follower.request_vote(args).unwrap();
+
+            assert_eq!(reply, expected);
+        }
+    }
+
+    #[test]
+    fn append_entries_term_update() {
+        let tests: Vec<(AppendEntriesArgs, AppendEntriesReply)> = vec![
+            (
+                AppendEntriesArgs {
+                    term: 4,
+                    leader_commit: 0,
+                    leader_id: 2,
+                    entries: Vec::new(),
+                    prev_log_index: 0,
+                    prev_log_term: 0,
+                },
+                AppendEntriesReply {
+                    term: 5,
+                    success: false,
+                },
+            ),
+            ( // our log is too short
+                AppendEntriesArgs {
+                    term: 5,
+                    leader_commit: 0,
+                    leader_id: 2,
+                    entries: Vec::new(),
+                    prev_log_index: 3,
+                    prev_log_term: 3,
+                },
+                AppendEntriesReply {
+                    term: 5,
+                    success: false,
+                },
+            ),
+            ( // inconsistent term at prev_log_index
+                AppendEntriesArgs {
+                    term: 5,
+                    leader_commit: 0,
+                    leader_id: 2,
+                    entries: Vec::new(),
+                    prev_log_index: 2,
+                    prev_log_term: 1,
+                },
+                AppendEntriesReply {
+                    term: 5,
+                    success: false,
+                },
+            ),
+            ( // higher term, make sure we update
+                AppendEntriesArgs {
+                    term: 6,
+                    leader_commit: 0,
+                    leader_id: 2,
+                    entries: Vec::new(),
+                    prev_log_index: 2,
+                    prev_log_term: 1,
+                },
+                AppendEntriesReply {
+                    term: 6,
+                    success: false,
+                },
+            ),
+            ( // higher term, make sure we update
+                AppendEntriesArgs {
+                    term: 6,
+                    leader_commit: 0,
+                    leader_id: 2,
+                    entries: Vec::new(),
+                    prev_log_index: 2,
+                    prev_log_term: 2,
+                },
+                AppendEntriesReply {
+                    term: 6,
+                    success: true,
+                },
+            ),
+        ];
+
+        for (args, expected) in tests {
+            let follower = setup_follower();
+
+            let reply = follower.append_entries(args).unwrap();
 
             assert_eq!(reply, expected);
         }

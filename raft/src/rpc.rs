@@ -29,7 +29,7 @@ pub struct AppendEntriesReply {
     pub success: bool,
 }
 
-pub trait RaftRPC {
+pub trait Rpc {
     fn request_vote(&self, args: RequestVoteArgs) -> Result<RequestVoteReply>;
     fn append_entries(&self, args: AppendEntriesArgs) -> Result<AppendEntriesReply>;
 }
