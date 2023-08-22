@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("Bad peer ids")]
     BadIds,
+    #[error("Couldn't get state lock")]
+    FailedLock,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

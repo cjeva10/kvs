@@ -14,6 +14,7 @@ pub enum NodeStatus {
     Leader,
 }
 
+#[derive(Clone, Debug)]
 pub struct Log {
     term: usize,
     command: String,
@@ -21,7 +22,8 @@ pub struct Log {
 
 struct State {
     current_term: usize,
-    voted_for: usize,
+    voted_for: Option<usize>,
+    leader_id: Option<usize>,
     log: Vec<Log>,
 
     commit_index: usize,
@@ -39,7 +41,8 @@ impl State {
     fn new() -> Self {
         Self {
             current_term: 0,
-            voted_for: 0,
+            voted_for: None,
+            leader_id: None,
             log: vec![Log {
                 term: 0,
                 command: "".to_string(),
@@ -85,7 +88,7 @@ impl RaftRPC for Node {
         let mut state = self.state.lock().unwrap();
         if args.term > state.current_term {
             state.current_term = args.term;
-            state.voted_for = 0;
+            state.voted_for = None;
             state.status = NodeStatus::Follower;
         }
 
@@ -100,21 +103,21 @@ impl RaftRPC for Node {
             return Ok(reply);
         }
 
-        if state.voted_for == 0 || state.voted_for == args.candidate_id {
+        if state.voted_for == None || state.voted_for == Some(args.candidate_id) {
             let our_last_index = state.log.len() - 1;
             let our_last_term = state.log[our_last_index].term;
 
             if args.last_log_term > our_last_term {
                 debug!("{}: granting vote to {}", self.id, args.candidate_id);
-                state.voted_for = args.candidate_id;
+                state.voted_for = Some(args.candidate_id);
                 reply.vote_granted = true;
-                // reset the timer here
+                // TODO: reset election timer here
             } else if args.last_log_term == our_last_term {
                 if args.last_log_index >= our_last_index {
                     debug!("{}: granting vote to {}", self.id, args.candidate_id);
-                    state.voted_for = args.candidate_id;
+                    state.voted_for = Some(args.candidate_id);
                     reply.vote_granted = true;
-                    // reset the timer here
+                    // TODO: reset election timer here
                 } else {
                     debug!("{}: rejected vote, log outdated: got term {}, index {}, have term {}, index {}", self.id, args.last_log_term, args.last_log_index, our_last_term, our_last_index);
                 }
@@ -122,7 +125,7 @@ impl RaftRPC for Node {
         } else {
             reply.vote_granted = false;
             debug!(
-                "{}: rejected vote from {}, already voted for {}",
+                "{}: rejected vote from {}, already voted for {:?}",
                 self.id, args.candidate_id, state.voted_for
             );
         }
@@ -131,10 +134,107 @@ impl RaftRPC for Node {
     }
 
     fn append_entries(&self, args: AppendEntriesArgs) -> Result<AppendEntriesReply> {
-        Ok(AppendEntriesReply {
+        let mut reply = AppendEntriesReply {
             term: 0,
             success: false,
-        })
+        };
+
+        let mut state = self.state.lock().map_err(|_| Error::FailedLock)?;
+
+        debug!(
+            "{}: AppendEntries received from {}",
+            self.id, args.leader_id
+        );
+
+        if args.term > state.current_term {
+            state.current_term = args.term;
+            state.voted_for = None;
+            state.status = NodeStatus::Follower;
+        }
+
+        reply.term = state.current_term;
+
+        if args.term < state.current_term {
+            debug!(
+                "{}: AppendEntries leader term less than ours: got {}, have {}",
+                self.id, args.term, state.current_term
+            );
+            reply.success = false;
+            return Ok(reply);
+        }
+
+        if state.log.len() - 1 < args.prev_log_index {
+            debug!(
+                "{}: AppendEntries from {}: inconsistent log: our index {}, args.prev_log_index {}",
+                self.id,
+                args.leader_id,
+                state.log.len() - 1,
+                args.prev_log_index
+            );
+            reply.success = false;
+
+            return Ok(reply);
+        }
+
+        if state.log[args.prev_log_index].term != args.prev_log_term {
+            debug!(
+                "{}: AppendEntries from {}: inconsistent log: our last term {}, args.prev_log_term {}",
+                self.id,
+                args.leader_id,
+                state.log[args.prev_log_term].term,
+                args.prev_log_term,
+            );
+            reply.success = false;
+
+            return Ok(reply);
+        }
+
+        let mut idx = args.prev_log_index + 1;
+        for entry in &args.entries {
+            if idx > state.log.len() - 1 {
+                break;
+            }
+
+            if entry.term != state.log[idx].term {
+                state.log = state.log[..idx].to_vec();
+                break;
+            }
+
+            idx += 1;
+        }
+
+        idx = args.prev_log_index + 1;
+
+        for i in 0..args.entries.len() {
+            if idx + i > state.log.len() - 1 {
+                state.log.append(&mut args.entries[i..].to_vec());
+                break;
+            }
+        }
+
+        if args.leader_commit > state.commit_index {
+            let idx_last_new_entry = state.log.len() - 1;
+
+            if idx_last_new_entry < args.leader_commit {
+                state.commit_index = idx_last_new_entry;
+            } else {
+                state.commit_index = args.leader_commit;
+            }
+
+            // TODO: check if we need to apply new entries
+        }
+
+        state.voted_for = Some(args.leader_id);
+        state.leader_id = Some(args.leader_id);
+        reply.success = true;
+        debug!(
+            "{}: AppendEntries successful: Current Log: {:?}, commit_index {}, current leader {:?}",
+            self.id, state.log, state.commit_index, state.leader_id
+        );
+
+        // TODO: reset election timer
+
+        Ok(reply)
     }
 }
 
@@ -156,7 +256,7 @@ mod tests {
             command: "2".to_string(),
         });
         state.current_term = 5;
-        state.voted_for = 0;
+        state.voted_for = None;
 
         drop(state);
         node
