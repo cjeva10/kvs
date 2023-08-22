@@ -1,49 +1,24 @@
-use raft_rpc::raft_server::{Raft, RaftServer};
-use raft_rpc::{RequestVoteArgs, RequestVoteReply, AppendEntriesArgs, AppendEntriesReply};
-use tonic::{transport::Server, Request, Response, Status};
-
-pub mod raft_rpc {
-    tonic::include_proto!("raft");
-}
-
-#[derive(Debug, Default)]
-pub struct MyRaft {}
-
-#[tonic::async_trait]
-impl Raft for MyRaft {
-    async fn request_vote(
-        &self,
-        request: Request<RequestVoteArgs>,
-    ) -> Result<Response<RequestVoteReply>, Status> {
-        println!("Got a request: {:?}", request);
-
-        let reply = raft_rpc::RequestVoteReply {
-            vote_granted: false,
-            term: 0,
-        };
-
-        Ok(Response::new(reply))
-    }
-
-    async fn append_entries(
-        &self,
-        request: Request<AppendEntriesArgs>,
-    ) -> Result<Response<AppendEntriesReply>, Status> {
-        println!("Got a request: {:?}", request);
-
-        let reply = raft_rpc::AppendEntriesReply {
-            success: false,
-            term: 0,
-        };
-
-        Ok(Response::new(reply))
-    }
-}
+use raft::Node;
+use raft::RaftServer;
+use raft::RaftClient;
+use raft::Peer;
+use tonic::transport::Server;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
-    let raft = MyRaft::default();
+
+    let peers = vec![
+        Peer { id: 2, client: RaftClient::connect("[::1]:50052").await? },
+        Peer { id: 3, client: RaftClient::connect("[::1]:50053").await? },
+        Peer { id: 4, client: RaftClient::connect("[::1]:50054").await? },
+        Peer { id: 5, client: RaftClient::connect("[::1]:50055").await? },
+    ];
+
+    let raft = Node::new(
+        1,
+        peers,
+    )?;
 
     Server::builder()
         .add_service(RaftServer::new(raft))
