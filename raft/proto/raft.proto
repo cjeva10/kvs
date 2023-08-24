@@ -6,6 +6,7 @@ service Raft {
     rpc AppendEntries (AppendEntriesArgs) returns (Empty);
     rpc ReplyToRequestVote (RequestVoteReply) returns (Empty);
     rpc ReplyToAppendEntries (AppendEntriesReply) returns (Empty);
+    rpc ClientRequest (ClientRequestArgs) returns (ClientRequestReply);
 }
 
 message Empty {}
@@ -42,3 +43,13 @@ message AppendEntriesReply {
     bool success = 2;
     uint64 peer = 3;
 }
+
+message ClientRequestArgs {
+    string command = 1;
+}
+
+message ClientRequestReply {
+    bool success = 1;
+    uint64 leader = 2;
+}
+
