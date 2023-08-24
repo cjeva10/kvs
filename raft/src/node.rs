@@ -497,6 +497,27 @@ impl Node {
     }
 }
 
+pub fn init_nodes(num: usize) -> (Vec<Node>, Vec<Sender<Message>>) {
+    let mut nodes = Vec::new();
+    let mut senders = Vec::new();
+
+    for i in 0..num {
+        let (tx, rx) = std::sync::mpsc::channel::<Message>();
+        nodes.push(Node::new(i as u64 + 1, rx, HashMap::new()));
+        senders.push(tx);
+    }
+
+    for i in 0..num {
+        for j in 0..num {
+            if i != j {
+                nodes[i].peers.insert(j as u64 + 1, senders[j].clone());
+            }
+        }
+    }
+
+    (nodes, senders.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -602,27 +623,6 @@ mod tests {
         {
             panic!("No leader elected!!");
         }
-    }
-
-    fn init_nodes(num: usize) -> (Vec<Node>, Vec<Sender<Message>>) {
-        let mut nodes = Vec::new();
-        let mut senders = Vec::new();
-
-        for i in 0..num {
-            let (tx, rx) = std::sync::mpsc::channel::<Message>();
-            nodes.push(Node::new(i as u64 + 1, rx, HashMap::new()));
-            senders.push(tx);
-        }
-
-        for i in 0..num {
-            for j in 0..num {
-                if i != j {
-                    nodes[i].peers.insert(j as u64 + 1, senders[j].clone());
-                }
-            }
-        }
-
-        (nodes, senders.clone())
     }
 
     #[test]

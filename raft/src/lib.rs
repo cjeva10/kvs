@@ -6,4 +6,4 @@ mod rpc {
 }
 
 pub use error::{Error, Result};
-pub use node::Node;
+pub use node::{Node, init_nodes};
