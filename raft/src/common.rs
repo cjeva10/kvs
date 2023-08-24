@@ -1,6 +1,6 @@
 use crate::rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply};
 use std::collections::HashMap;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Sender, Receiver};
 
 // for checking what the current state of the node is
 #[derive(Debug, PartialEq)]
@@ -16,6 +16,7 @@ pub struct State {
     pub next_index: HashMap<u64, usize>,
     pub match_index: HashMap<u64, usize>,
     pub killed: bool,
+    pub leader_id: Option<u64>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -27,6 +28,12 @@ pub enum Role {
 }
 
 #[derive(Debug)]
+pub struct ClientRequestReply {
+    pub success: bool,
+    pub leader_id: Option<u64>,
+}
+
+#[derive(Debug)]
 pub enum Message {
     AppendEntries(AppendEntriesArgs),
     AppendEntriesReply(AppendEntriesReply),
@@ -34,5 +41,7 @@ pub enum Message {
     RequestVoteReply(RequestVoteReply),
     CheckState(Sender<Message>),
     State(State),
+    ClientRequest(String, Sender<Message>),
+    ClientRequestReply(ClientRequestReply),
     Kill,
 }

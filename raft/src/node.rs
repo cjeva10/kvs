@@ -1,13 +1,14 @@
 use crate::{
-    common::{Message, Role, State},
+    common::{Message, Role, State, ClientRequestReply},
     rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply},
     Error, Result,
 };
-use log::debug;
+use log::{debug, warn};
 use rand::{thread_rng, Rng};
 use std::{
     cmp::min,
     collections::HashMap,
+    path::PathBuf,
     sync::mpsc::{Receiver, RecvTimeoutError, Sender},
     time::{Duration, Instant},
 };
@@ -50,11 +51,30 @@ pub struct Node {
 
     /// For manually shutting down the node in testing
     pub killed: bool,
+    /// The current leader
+    pub leader_id: Option<u64>,
 }
 
 impl Node {
-    /// Generate a new `Node` with a blank slate (i.e. a "Follower")
+    /// Generate a new `Node` with a blank slate (i.e. a "Follower", with empty log)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use raft::Node;
+    /// use std::{
+    ///     collections::HashMap,
+    ///     sync::mpsc,
+    /// };
+    ///
+    ///
+    /// let (_, rx) = mpsc::channel();
+    /// let node = Node::new(1, rx, HashMap::new());
+    ///
+    /// assert_eq!(node.term, 0);
+    /// ```
     pub fn new(id: u64, inbox: Receiver<Message>, peers: HashMap<u64, Sender<Message>>) -> Self {
+        assert_ne!(id, 0);
         Self {
             id,
             role: Role::Follower,
@@ -72,19 +92,71 @@ impl Node {
             inbox,
             peers,
             killed: false,
+            leader_id: None,
         }
     }
 
-    pub fn start(mut self) -> Result<()> {
+    /// Recover a `Node` from a persistent state file
+    /// TODO
+    pub fn from_file(
+        id: u64,
+        inbox: Receiver<Message>,
+        path: impl Into<PathBuf>,
+        peers: HashMap<u64, Sender<Message>>,
+    ) -> Result<Self> {
+        todo!()
+    }
+
+    /// Start the `Node`s main event loop
+    ///
+    /// Since the loop is infinite it is recommended to `start` on a new thread or task
+    ///
+    /// Read messages and "tick" the current state whenever the timeout elapses
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use raft::{Message, Node};
+    /// use std::{
+    ///     collections::HashMap,
+    ///     sync::mpsc,
+    ///     time::Duration,
+    ///     thread,
+    /// };
+    ///
+    /// let (tx, rx) = mpsc::channel();
+    ///
+    /// let node = Node::new(1, rx, HashMap::new());
+    ///
+    /// thread::spawn(|| {
+    ///     node.start(100).unwrap();
+    /// });
+    ///
+    /// let (state_tx, state_rx) = mpsc::channel();
+    /// tx.send(Message::CheckState(state_tx)).unwrap();
+    ///
+    /// thread::sleep(Duration::from_millis(10));
+    ///
+    /// let Message::State(state) = state_rx.recv().unwrap() else {
+    ///     panic!("Expected Message::State");
+    /// };
+    ///
+    /// assert_eq!(state.term, 0);
+    /// ```
+    pub fn start(mut self, min_delay: u64) -> Result<()> {
+        if min_delay < 50 {
+            warn!("Minimum timeout of {}ms might be too low", min_delay);
+        }
+
         let mut t = Instant::now();
         let mut rng = thread_rng();
         loop {
             // handle all the messages in our inbox
             let mut timeout = match self.role {
-                Role::Leader => Duration::from_millis(50 + rng.gen_range(0..25)),
                 Role::Follower | Role::Candidate => {
-                    Duration::from_millis(100 + rng.gen_range(0..50))
+                    Duration::from_millis(min_delay + rng.gen_range(0..min_delay / 2))
                 }
+                Role::Leader => Duration::from_millis(min_delay / 2),
             };
             debug!("Setting initial timeout to {}", timeout.as_millis());
             loop {
@@ -95,10 +167,10 @@ impl Node {
                         if self.handle_message(m)? {
                             t = Instant::now();
                             timeout = match self.role {
-                                Role::Follower | Role::Candidate => {
-                                    Duration::from_millis(100 + rng.gen_range(0..50))
-                                }
-                                Role::Leader => Duration::from_millis(50 + rng.gen_range(0..50)),
+                                Role::Follower | Role::Candidate => Duration::from_millis(
+                                    min_delay + rng.gen_range(0..min_delay / 2),
+                                ),
+                                Role::Leader => Duration::from_millis(min_delay / 2),
                             }
                         // if read returns false, then simply decrement the time elapsed
                         } else {
@@ -127,9 +199,26 @@ impl Node {
         }
     }
 
-    /// handles the message on the state machine
-    ///
-    /// if the message results in needing to reset the timer, we return `true`
+    fn handle_client_request(&mut self, s: String, tx: Sender<Message>) -> Result<bool> {
+        debug!("{}: Received ClientRequest: command = {}", self.id, s);
+
+        if self.role != Role::Leader {
+            debug!(
+                "{}: ClientRequest failed, not leader: alleged leader {:?}",
+                self.id, self.leader_id
+            );
+            let reply = ClientRequestReply {
+                success: false, 
+                leader_id: self.leader_id,
+            };
+
+            tx.send(Message::ClientRequestReply(reply))?;
+        } else {
+
+        }
+        Ok(false)
+    }
+
     fn handle_message(&mut self, m: Message) -> Result<bool> {
         if self.killed {
             return Ok(true);
@@ -141,33 +230,12 @@ impl Node {
             Message::AppendEntries(args) => self.handle_append_entries(args),
             Message::AppendEntriesReply(reply) => self.handle_append_entries_reply(reply),
             Message::CheckState(tx) => self.handle_check_state(tx),
-            Message::State(_) => Ok(false),
+            Message::ClientRequest(str, tx) => self.handle_client_request(str, tx),
+            Message::State(_) | Message::ClientRequestReply(_) => Ok(false),
             Message::Kill => {
                 self.killed = true;
                 Ok(true)
             }
-        }
-    }
-
-    // check the state of the node for testing purposes
-    fn handle_check_state(&self, tx: Sender<Message>) -> Result<bool> {
-        tx.send(Message::State(self.state())).unwrap();
-        Ok(false)
-    }
-
-    fn state(&self) -> State {
-        State {
-            id: self.id,
-            role: self.role.clone(),
-            votes: self.votes,
-            term: self.term,
-            voted_for: self.voted_for,
-            log: self.log.clone(),
-            commit_index: self.commit_index,
-            last_applied: self.last_applied,
-            next_index: self.next_index.clone(),
-            match_index: self.match_index.clone(),
-            killed: self.killed,
         }
     }
 
@@ -243,11 +311,6 @@ impl Node {
         Ok(false)
     }
 
-    /// It is assumed that replies to `requestVote` don't go to the wrong node, they either
-    /// get sent or they fail to reach destination for whatever reason.
-    ///
-    /// Therefore, if we receive a reply, it's either to our current term, or it's a stale reply
-    /// In the first case, we handle it as specified exactly in the raft paper, else we ignore
     fn handle_request_vote_reply(&mut self, reply: RequestVoteReply) -> Result<bool> {
         if reply.term < self.term {
             debug!(
@@ -271,7 +334,8 @@ impl Node {
                         self.votes,
                         self.peers.len() / 2 + 1
                     );
-                    self.role = Role::Leader;
+
+                    self.become_leader();
                     return Ok(true);
                 }
             }
@@ -387,14 +451,6 @@ impl Node {
     fn check_last_applied(&mut self) {
         todo!()
     }
-
-    fn become_follower(&mut self, term: u64) {
-        self.term = term;
-        self.voted_for = None;
-        self.votes = 0;
-        self.role = Role::Follower;
-    }
-
     fn handle_append_entries_reply(&mut self, reply: AppendEntriesReply) -> Result<bool> {
         if reply.term > self.term {
             self.become_follower(reply.term);
@@ -416,16 +472,31 @@ impl Node {
         Ok(false)
     }
 
-    /// send a message to a given peer
-    pub fn send_message(&self, peer: u64, m: Message) -> Result<()> {
-        let sender = self.peers.get(&peer).unwrap();
-        sender.send(m)?;
-        Ok(())
+    fn handle_check_state(&self, tx: Sender<Message>) -> Result<bool> {
+        tx.send(Message::State(self.state())).unwrap();
+        Ok(false)
+    }
+
+    fn state(&self) -> State {
+        State {
+            id: self.id,
+            role: self.role.clone(),
+            votes: self.votes,
+            term: self.term,
+            voted_for: self.voted_for,
+            log: self.log.clone(),
+            commit_index: self.commit_index,
+            last_applied: self.last_applied,
+            next_index: self.next_index.clone(),
+            match_index: self.match_index.clone(),
+            killed: self.killed,
+            leader_id: self.leader_id,
+        }
     }
 
     /// either call an election if we are a candidate or a follower, else send heartbeats
     /// to all the followers
-    pub fn tick(&mut self) -> Result<()> {
+    fn tick(&mut self) -> Result<()> {
         if self.killed {
             return Ok(());
         }
@@ -455,7 +526,7 @@ impl Node {
                 self.peers.len() / 2 + 1
             );
 
-            self.role = Role::Leader;
+            self.become_leader();
             return Ok(());
         }
 
@@ -495,34 +566,35 @@ impl Node {
         }
         Ok(())
     }
-}
 
-pub fn init_nodes(num: usize) -> (Vec<Node>, Vec<Sender<Message>>) {
-    let mut nodes = Vec::new();
-    let mut senders = Vec::new();
-
-    for i in 0..num {
-        let (tx, rx) = std::sync::mpsc::channel::<Message>();
-        nodes.push(Node::new(i as u64 + 1, rx, HashMap::new()));
-        senders.push(tx);
+    fn become_follower(&mut self, term: u64) {
+        self.term = term;
+        self.voted_for = None;
+        self.votes = 0;
+        self.role = Role::Follower;
     }
 
-    for i in 0..num {
-        for j in 0..num {
-            if i != j {
-                nodes[i].peers.insert(j as u64 + 1, senders[j].clone());
-            }
-        }
+    fn become_leader(&mut self) {
+        self.role = Role::Leader;
+        self.leader_id = Some(self.id);
     }
 
-    (nodes, senders.clone())
+    /// send a message to a given peer
+    fn send_message(&self, peer: u64, m: Message) -> Result<()> {
+        let sender = self.peers.get(&peer).unwrap();
+        sender.send(m)?;
+        Ok(())
+    }
 }
-
 #[cfg(test)]
 mod tests {
+    use crate::helpers::init_local_nodes;
+
     use super::*;
     use std::collections::HashMap;
     use std::thread;
+
+    const MIN_DELAY: u64 = 100;
 
     // A single node should start an election and elect itself the leader
     #[test_log::test]
@@ -532,7 +604,7 @@ mod tests {
         let node = Node::new(1, rx, HashMap::new());
 
         thread::spawn(|| {
-            node.start().unwrap();
+            node.start(MIN_DELAY).unwrap();
         });
 
         thread::sleep(Duration::from_millis(200));
@@ -558,6 +630,7 @@ mod tests {
             voted_for: Some(1),
             votes: 1,
             killed: false,
+            leader_id: Some(1),
         };
 
         assert_eq!(expected, state);
@@ -590,13 +663,13 @@ mod tests {
         );
 
         thread::spawn(|| {
-            node_1.start().unwrap();
+            node_1.start(MIN_DELAY).unwrap();
         });
         thread::spawn(|| {
-            node_2.start().unwrap();
+            node_2.start(MIN_DELAY).unwrap();
         });
         thread::spawn(|| {
-            node_3.start().unwrap();
+            node_3.start(MIN_DELAY).unwrap();
         });
 
         thread::sleep(Duration::from_millis(200));
@@ -627,7 +700,7 @@ mod tests {
 
     #[test]
     fn test_init_one_node() {
-        let (nodes, senders) = init_nodes(1);
+        let (nodes, senders) = init_local_nodes(1);
 
         assert_eq!(nodes.len(), 1);
         assert_eq!(senders.len(), 1);
@@ -637,7 +710,7 @@ mod tests {
 
     #[test]
     fn test_init_three_nodes() {
-        let (nodes, senders) = init_nodes(3);
+        let (nodes, senders) = init_local_nodes(3);
 
         assert_eq!(nodes.len(), 3);
         assert_eq!(senders.len(), 3);
@@ -661,12 +734,12 @@ mod tests {
 
     #[test_log::test]
     fn test_three_nodes_kill_leader() {
-        let (nodes, tx) = init_nodes(3);
+        let (nodes, tx) = init_local_nodes(3);
         let (state_tx, state_rx) = make_state_channels(3);
 
         for node in nodes {
             thread::spawn(|| {
-                let _ = node.start();
+                let _ = node.start(MIN_DELAY);
             });
         }
 
