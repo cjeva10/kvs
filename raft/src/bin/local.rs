@@ -13,8 +13,8 @@ async fn main() -> Result<()> {
     let mut handles = Vec::new();
 
     for node in nodes {
-        handles.push(tokio::spawn( async {
-            node.start(MIN_DELAY).unwrap();
+        handles.push(tokio::spawn(async move {
+            node.start(MIN_DELAY).await;
         }));
     }
 

@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use crate::common::Message;
-use std::sync::mpsc::SendError;
+use tokio::sync::mpsc::error::SendError;
 
 /// Custom error type for dealing with Raft errors
 #[derive(Debug, Error)]

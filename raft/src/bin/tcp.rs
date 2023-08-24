@@ -5,11 +5,11 @@ use raft::rpc::{
 };
 use raft::{Message, Node};
 use std::collections::HashMap;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 use tonic::{transport::Server, Request, Response, Status};
 
 pub struct MyRaft {
-    inbox: Sender<Message>,
+    inbox: UnboundedSender<Message>,
 }
 
 #[tonic::async_trait]
@@ -75,18 +75,18 @@ impl Raft for MyRaft {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let addr = "[::1]:50051".parse().unwrap();
-    // let (tx, rx) = tokio::sync::mpsc::channel(100);
-    //
-    // let node = Node::new(1, rx, HashMap::new());
-    // let rpc = MyRaft { inbox: tx };
-    //
-    // println!("Raft listening on {}", addr);
-    //
-    // Server::builder()
-    //     .add_service(RaftServer::new(rpc))
-    //     .serve(addr)
-    //     .await?;
-    //
+    let addr = "[::1]:50051".parse().unwrap();
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+
+    let node = Node::new(1, rx, HashMap::new());
+    let rpc = MyRaft { inbox: tx };
+
+    println!("Raft listening on {}", addr);
+
+    Server::builder()
+        .add_service(RaftServer::new(rpc))
+        .serve(addr)
+        .await?;
+
     Ok(())
 }

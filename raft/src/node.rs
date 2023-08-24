@@ -1,5 +1,5 @@
 use crate::{
-    common::{Message, Role, State, ClientRequestReply},
+    common::{ClientRequestReply, Message, Role, State},
     rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply},
     Error, Result,
 };
@@ -9,8 +9,12 @@ use std::{
     cmp::min,
     collections::HashMap,
     path::PathBuf,
-    sync::mpsc::{Receiver, RecvTimeoutError, Sender},
+    sync::mpsc::{Receiver, Sender},
     time::{Duration, Instant},
+};
+use tokio::{
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    time::timeout,
 };
 
 /// An instance of a Raft Node
@@ -43,11 +47,11 @@ pub struct Node {
     /// Receive all messages on a single channel
     ///
     /// TODO: Create a network thread to send RPC messages on this channel
-    pub inbox: Receiver<Message>,
+    pub inbox: UnboundedReceiver<Message>,
     /// Store network peers as a `HashMap` from id's to a `Sender`
     ///
     /// TODO: Create a network thread that simply receives on these channels
-    pub peers: HashMap<u64, Sender<Message>>,
+    pub peers: HashMap<u64, UnboundedSender<Message>>,
 
     /// For manually shutting down the node in testing
     pub killed: bool,
@@ -73,7 +77,11 @@ impl Node {
     ///
     /// assert_eq!(node.term, 0);
     /// ```
-    pub fn new(id: u64, inbox: Receiver<Message>, peers: HashMap<u64, Sender<Message>>) -> Self {
+    pub fn new(
+        id: u64,
+        inbox: UnboundedReceiver<Message>,
+        peers: HashMap<u64, UnboundedSender<Message>>,
+    ) -> Self {
         assert_ne!(id, 0);
         Self {
             id,
@@ -143,7 +151,7 @@ impl Node {
     ///
     /// assert_eq!(state.term, 0);
     /// ```
-    pub fn start(mut self, min_delay: u64) -> Result<()> {
+    pub async fn start(&mut self, min_delay: u64) -> Result<()> {
         if min_delay < 50 {
             warn!("Minimum timeout of {}ms might be too low", min_delay);
         }
@@ -152,54 +160,56 @@ impl Node {
         let mut rng = thread_rng();
         loop {
             // handle all the messages in our inbox
-            let mut timeout = match self.role {
+            let mut timer = match self.role {
                 Role::Follower | Role::Candidate => {
                     Duration::from_millis(min_delay + rng.gen_range(0..min_delay / 2))
                 }
                 Role::Leader => Duration::from_millis(min_delay / 2),
             };
-            debug!("Setting initial timeout to {}", timeout.as_millis());
+            debug!("Setting initial timeout to {}", timer.as_millis());
             loop {
-                match self.inbox.recv_timeout(timeout) {
-                    Ok(m) => {
-                        debug!("Got a message {:?}", m);
-                        // if a read returns true, that means we should restart our tick timer
-                        if self.handle_message(m)? {
+                // match self.inbox.recv_timeout(timeout) {
+                loop {
+                    match timeout(timer, self.inbox.recv()).await {
+                        Ok(Some(m)) => {
+                            debug!("Got a message {:?}", m);
+                            // if a read returns true, that means we should restart our tick timer
+                            if self.handle_message(m)? {
+                                t = Instant::now();
+                                timer = match self.role {
+                                    Role::Follower | Role::Candidate => Duration::from_millis(
+                                        min_delay + rng.gen_range(0..min_delay / 2),
+                                    ),
+                                    Role::Leader => Duration::from_millis(min_delay / 2),
+                                }
+                            // if read returns false, then simply decrement the time elapsed
+                            } else {
+                                timer -= t.elapsed();
+                            };
+                        }
+                        Err(_) => {
+                            debug!(
+                                "{}: Timer timeout: term {}, role {:?}",
+                                self.id, self.term, self.role
+                            );
+                            self.tick()?;
                             t = Instant::now();
-                            timeout = match self.role {
-                                Role::Follower | Role::Candidate => Duration::from_millis(
-                                    min_delay + rng.gen_range(0..min_delay / 2),
-                                ),
-                                Role::Leader => Duration::from_millis(min_delay / 2),
-                            }
-                        // if read returns false, then simply decrement the time elapsed
-                        } else {
-                            timeout -= t.elapsed();
-                        };
-                    }
-                    Err(RecvTimeoutError::Timeout) => {
-                        debug!(
-                            "{}: Timer timeout: term {}, role {:?}",
-                            self.id, self.term, self.role
-                        );
-                        self.tick()?;
-                        t = Instant::now();
-                        timeout = match self.role {
-                            Role::Leader => Duration::from_millis(50),
-                            Role::Follower | Role::Candidate => Duration::from_millis(100),
-                        };
-                    }
-                    // This shouldn't happen because the network should live as long as the node
-                    Err(RecvTimeoutError::Disconnected) => {
-                        debug!("Broken Inbox: inbox channel disconnected");
-                        return Err(Error::BrokenInbox);
+                            timer = match self.role {
+                                Role::Leader => Duration::from_millis(50),
+                                Role::Follower | Role::Candidate => Duration::from_millis(100),
+                            };
+                        }
+                        Ok(None) => {
+                            debug!("Broken Inbox: inbox channel disconnected");
+                            return Err(Error::BrokenInbox);
+                        }
                     }
                 }
             }
         }
     }
 
-    fn handle_client_request(&mut self, s: String, tx: Sender<Message>) -> Result<bool> {
+    fn handle_client_request(&mut self, s: String, tx: UnboundedSender<Message>) -> Result<bool> {
         debug!("{}: Received ClientRequest: command = {}", self.id, s);
 
         if self.role != Role::Leader {
@@ -208,13 +218,12 @@ impl Node {
                 self.id, self.leader_id
             );
             let reply = ClientRequestReply {
-                success: false, 
+                success: false,
                 leader_id: self.leader_id,
             };
 
             tx.send(Message::ClientRequestReply(reply))?;
         } else {
-
         }
         Ok(false)
     }
@@ -472,7 +481,7 @@ impl Node {
         Ok(false)
     }
 
-    fn handle_check_state(&self, tx: Sender<Message>) -> Result<bool> {
+    fn handle_check_state(&self, tx: UnboundedSender<Message>) -> Result<bool> {
         tx.send(Message::State(self.state())).unwrap();
         Ok(false)
     }
@@ -597,21 +606,21 @@ mod tests {
     const MIN_DELAY: u64 = 100;
 
     // A single node should start an election and elect itself the leader
-    #[test_log::test]
-    fn test_one_node_election() {
-        let (tx, rx) = std::sync::mpsc::channel();
-        let (state_tx, state_rx) = std::sync::mpsc::channel();
-        let node = Node::new(1, rx, HashMap::new());
+    #[tokio::test]
+    async fn test_one_node_election() {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let (state_tx, mut state_rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut node = Node::new(1, rx, HashMap::new());
 
-        thread::spawn(|| {
-            node.start(MIN_DELAY).unwrap();
+        tokio::spawn(async move {
+            node.start(MIN_DELAY).await;
         });
 
         thread::sleep(Duration::from_millis(200));
 
         tx.send(Message::CheckState(state_tx.clone())).unwrap();
 
-        let Message::State(state) = state_rx.recv().unwrap() else {
+        let Message::State(state) = state_rx.recv().await.unwrap() else {
             panic!("Expected Message::State");
         };
 
@@ -636,15 +645,15 @@ mod tests {
         assert_eq!(expected, state);
     }
 
-    #[test_log::test]
-    fn test_three_node_election() {
-        let (tx_1, rx_1) = std::sync::mpsc::channel::<Message>();
-        let (tx_2, rx_2) = std::sync::mpsc::channel::<Message>();
-        let (tx_3, rx_3) = std::sync::mpsc::channel::<Message>();
+    #[tokio::test]
+    async fn test_three_node_election() {
+        let (tx_1, rx_1) = tokio::sync::mpsc::unbounded_channel::<Message>();
+        let (tx_2, rx_2) = tokio::sync::mpsc::unbounded_channel::<Message>();
+        let (tx_3, rx_3) = tokio::sync::mpsc::unbounded_channel::<Message>();
 
-        let (state_tx_1, state_rx_1) = std::sync::mpsc::channel();
-        let (state_tx_2, state_rx_2) = std::sync::mpsc::channel();
-        let (state_tx_3, state_rx_3) = std::sync::mpsc::channel();
+        let (state_tx_1, mut state_rx_1) = tokio::sync::mpsc::unbounded_channel();
+        let (state_tx_2, mut state_rx_2) = tokio::sync::mpsc::unbounded_channel();
+        let (state_tx_3, mut state_rx_3) = tokio::sync::mpsc::unbounded_channel();
 
         let node_1 = Node::new(
             1,
@@ -662,14 +671,14 @@ mod tests {
             HashMap::from([(1, tx_1.clone()), (2, tx_2.clone())]),
         );
 
-        thread::spawn(|| {
-            node_1.start(MIN_DELAY).unwrap();
+        tokio::spawn(async move {
+            node_1.start(MIN_DELAY);
         });
-        thread::spawn(|| {
-            node_2.start(MIN_DELAY).unwrap();
+        tokio::spawn(async move {
+            node_2.start(MIN_DELAY);
         });
-        thread::spawn(|| {
-            node_3.start(MIN_DELAY).unwrap();
+        tokio::spawn(async {
+            node_3.start(MIN_DELAY);
         });
 
         thread::sleep(Duration::from_millis(200));
@@ -680,13 +689,13 @@ mod tests {
 
         thread::sleep(Duration::from_millis(100));
 
-        let Message::State(state_1) = state_rx_1.recv().unwrap() else {
+        let Message::State(state_1) = state_rx_1.recv().await.unwrap() else {
             panic!("Expected Message::State");
         };
-        let Message::State(state_2) = state_rx_2.recv().unwrap() else {
+        let Message::State(state_2) = state_rx_2.recv().await.unwrap() else {
             panic!("Expected Message::State");
         };
-        let Message::State(state_3) = state_rx_3.recv().unwrap() else {
+        let Message::State(state_3) = state_rx_3.recv().await.unwrap() else {
             panic!("Expected Message::State");
         };
 
@@ -720,11 +729,16 @@ mod tests {
         assert_eq!(nodes[2].peers.len(), 2);
     }
 
-    fn make_state_channels(num: usize) -> (Vec<Sender<Message>>, Vec<Receiver<Message>>) {
+    fn make_state_channels(
+        num: usize,
+    ) -> (
+        Vec<UnboundedSender<Message>>,
+        Vec<UnboundedReceiver<Message>>,
+    ) {
         let mut senders = Vec::new();
         let mut receivers = Vec::new();
         for _ in 0..num {
-            let (tx, rx) = std::sync::mpsc::channel();
+            let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
             senders.push(tx);
             receivers.push(rx);
         }
@@ -732,10 +746,10 @@ mod tests {
         (senders, receivers)
     }
 
-    #[test_log::test]
-    fn test_three_nodes_kill_leader() {
+    #[tokio::test]
+    async fn test_three_nodes_kill_leader() {
         let (nodes, tx) = init_local_nodes(3);
-        let (state_tx, state_rx) = make_state_channels(3);
+        let (state_tx, mut state_rx) = make_state_channels(3);
 
         for node in nodes {
             thread::spawn(|| {
@@ -757,13 +771,13 @@ mod tests {
 
         thread::sleep(Duration::from_millis(100));
 
-        let Message::State(state_1) = state_rx[0].recv().unwrap() else {
+        let Message::State(state_1) = state_rx[0].recv().await.unwrap() else {
             panic!("Expected Message::State");
         };
-        let Message::State(state_2) = state_rx[1].recv().unwrap() else {
+        let Message::State(state_2) = state_rx[1].recv().await.unwrap() else {
             panic!("Expected Message::State");
         };
-        let Message::State(state_3) = state_rx[2].recv().unwrap() else {
+        let Message::State(state_3) = state_rx[2].recv().await.unwrap() else {
             panic!("Expected Message::State");
         };
 
@@ -801,10 +815,10 @@ mod tests {
 
                 thread::sleep(Duration::from_millis(50));
 
-                let Message::State(state_2) = state_rx[1].recv().unwrap() else {
+                let Message::State(state_2) = state_rx[1].recv().await.unwrap() else {
                     panic!("Expected Message::State");
                 };
-                let Message::State(state_3) = state_rx[2].recv().unwrap() else {
+                let Message::State(state_3) = state_rx[2].recv().await.unwrap() else {
                     panic!("Expected Message::State");
                 };
 
@@ -825,10 +839,10 @@ mod tests {
 
                 thread::sleep(Duration::from_millis(50));
 
-                let Message::State(state_1) = state_rx[0].recv().unwrap() else {
+                let Message::State(state_1) = state_rx[0].recv().await.unwrap() else {
                     panic!("Expected Message::State");
                 };
-                let Message::State(state_3) = state_rx[2].recv().unwrap() else {
+                let Message::State(state_3) = state_rx[2].recv().await.unwrap() else {
                     panic!("Expected Message::State");
                 };
 
@@ -848,10 +862,10 @@ mod tests {
                     .unwrap();
                 thread::sleep(Duration::from_millis(50));
 
-                let Message::State(state_1) = state_rx[0].recv().unwrap() else {
+                let Message::State(state_1) = state_rx[0].recv().await.unwrap() else {
                     panic!("Expected Message::State");
                 };
-                let Message::State(state_2) = state_rx[1].recv().unwrap() else {
+                let Message::State(state_2) = state_rx[1].recv().await.unwrap() else {
                     panic!("Expected Message::State");
                 };
 
