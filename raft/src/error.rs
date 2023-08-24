@@ -14,4 +14,3 @@ pub enum Error {
     FailedSend(#[from] SendError<Message>),
 }
 pub type Result<T> = std::result::Result<T, Error>;
-

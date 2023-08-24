@@ -1,4 +1,4 @@
-use crate::rpc::{Log, AppendEntriesArgs, AppendEntriesReply, RequestVoteArgs, RequestVoteReply};
+use crate::rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
