@@ -20,6 +20,7 @@ message RequestVoteArgs {
 message RequestVoteReply {
     uint64 term = 1;
     bool voteGranted = 2;
+    uint64 peer = 3;
 }
 
 message AppendEntriesArgs {
@@ -39,4 +40,5 @@ message Log {
 message AppendEntriesReply {
     uint64 term = 1;
     bool success = 2;
+    uint64 peer = 3;
 }

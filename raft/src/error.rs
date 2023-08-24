@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::Message;
+use crate::common::Message;
 use std::sync::mpsc::SendError;
 
 /// Custom error type for dealing with Raft errors
