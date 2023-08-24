@@ -12,9 +12,6 @@ pub enum Error {
     /// Failed to send message on channel to the network
     #[error("Failed to send message to peer")]
     FailedSend(#[from] SendError<Message>),
-    /// Node has been manually killed in a test
-    #[error("Node manually killed")]
-    Killed,
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
