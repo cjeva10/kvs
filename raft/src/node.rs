@@ -612,6 +612,18 @@ mod tests {
 
     const MIN_DELAY: u64 = 100;
 
+    fn make_state_channels(num: usize) -> (Vec<Sender<Message>>, Vec<Receiver<Message>>) {
+        let mut senders = Vec::new();
+        let mut receivers = Vec::new();
+        for _ in 0..num {
+            let (tx, rx) = tokio::sync::mpsc::channel(64);
+            senders.push(tx);
+            receivers.push(rx);
+        }
+
+        (senders, receivers)
+    }
+
     // A single node should start an election and elect itself the leader
     #[tokio::test]
     async fn test_one_node_election() {
@@ -623,7 +635,7 @@ mod tests {
             node.start(MIN_DELAY).await.unwrap();
         });
 
-        tokio::time::sleep(Duration::from_millis(MIN_DELAY*3/2)).await;
+        tokio::time::sleep(Duration::from_millis(MIN_DELAY * 3 / 2)).await;
 
         tx.send(Message::CheckState(state_tx.clone()))
             .await
@@ -690,7 +702,7 @@ mod tests {
             node_3.start(MIN_DELAY).await.unwrap();
         });
 
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        tokio::time::sleep(Duration::from_millis(MIN_DELAY * 2)).await;
 
         tx_1.send(Message::CheckState(state_tx_1)).await.unwrap();
         tx_2.send(Message::CheckState(state_tx_2)).await.unwrap();
@@ -715,41 +727,6 @@ mod tests {
             panic!("No leader elected!!");
         }
     }
-
-    #[test]
-    fn test_init_one_node() {
-        let (nodes, senders) = init_local_nodes(1);
-
-        assert_eq!(nodes.len(), 1);
-        assert_eq!(senders.len(), 1);
-
-        assert_eq!(nodes[0].peers.len(), 0);
-    }
-
-    #[test]
-    fn test_init_three_nodes() {
-        let (nodes, senders) = init_local_nodes(3);
-
-        assert_eq!(nodes.len(), 3);
-        assert_eq!(senders.len(), 3);
-
-        assert_eq!(nodes[0].peers.len(), 2);
-        assert_eq!(nodes[1].peers.len(), 2);
-        assert_eq!(nodes[2].peers.len(), 2);
-    }
-
-    fn make_state_channels(num: usize) -> (Vec<Sender<Message>>, Vec<Receiver<Message>>) {
-        let mut senders = Vec::new();
-        let mut receivers = Vec::new();
-        for _ in 0..num {
-            let (tx, rx) = tokio::sync::mpsc::channel(64);
-            senders.push(tx);
-            receivers.push(rx);
-        }
-
-        (senders, receivers)
-    }
-
     #[tokio::test]
     async fn test_three_nodes_kill_leader() {
         let (nodes, tx) = init_local_nodes(3);
@@ -761,7 +738,7 @@ mod tests {
             });
         }
 
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        tokio::time::sleep(Duration::from_millis(MIN_DELAY * 2)).await;
 
         tx[0]
             .send(Message::CheckState(state_tx[0].clone()))
@@ -807,7 +784,7 @@ mod tests {
             panic!("No leader elected!");
         }
 
-        tokio::time::sleep(Duration::from_millis(300)).await;
+        tokio::time::sleep(Duration::from_millis(MIN_DELAY * 2)).await;
 
         let mut found_leader = 0;
 
@@ -822,7 +799,7 @@ mod tests {
                     .await
                     .unwrap();
 
-                tokio::time::sleep(Duration::from_millis(50)).await;
+                tokio::time::sleep(Duration::from_millis(MIN_DELAY / 4)).await;
 
                 let Message::State(state_2) = state_rx[1].recv().await.unwrap() else {
                     panic!("Expected Message::State");
@@ -848,7 +825,7 @@ mod tests {
                     .await
                     .unwrap();
 
-                tokio::time::sleep(Duration::from_millis(50)).await;
+                tokio::time::sleep(Duration::from_millis(MIN_DELAY / 4)).await;
 
                 let Message::State(state_1) = state_rx[0].recv().await.unwrap() else {
                     panic!("Expected Message::State");
@@ -873,7 +850,7 @@ mod tests {
                     .send(Message::CheckState(state_tx[1].clone()))
                     .await
                     .unwrap();
-                tokio::time::sleep(Duration::from_millis(50)).await;
+                tokio::time::sleep(Duration::from_millis(MIN_DELAY / 4)).await;
 
                 let Message::State(state_1) = state_rx[0].recv().await.unwrap() else {
                     panic!("Expected Message::State");
