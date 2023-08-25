@@ -31,5 +31,10 @@ name = "local"
 path = "src/bin/local.rs"
 
 [[bin]]
-name = "tcp"
-path = "src/bin/tcp.rs"
+name = "tcp5"
+path = "src/bin/five_tcp.rs"
+
+[[bin]]
+name = "tcp1"
+path = "src/bin/single_tcp.rs"
+
