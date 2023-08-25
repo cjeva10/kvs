@@ -1,6 +1,9 @@
 use crate::{
-    common::{ClientRequestReply, Message, Role, State},
-    rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply},
+    common::{Callback, Message, Role, State},
+    rpc::{
+        AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, Log, RequestVoteArgs,
+        RequestVoteReply,
+    },
     Error, Result,
 };
 use log::{debug, warn};
@@ -42,10 +45,14 @@ pub struct Node {
     ///
     /// TODO: Create a network thread to send RPC messages on this channel
     pub inbox: Receiver<Message>,
+    pub outbox: Sender<Message>,
+
     /// Store network peers as a `HashMap` from id's to a `Sender`
     ///
     /// TODO: Create a network thread that simply receives on these channels
     pub peers: HashMap<u64, Sender<Message>>,
+    /// Store callback channels for client requests. When the last_applied is greater than the
+    /// index stored here, we can
 
     /// For manually shutting down the node in testing
     pub killed: bool,
@@ -64,12 +71,17 @@ impl Node {
     /// use tokio::sync::mpsc;
     ///
     ///
-    /// let (_, rx) = mpsc::channel(1);
-    /// let node = Node::new(1, rx, HashMap::new());
+    /// let (tx, rx) = mpsc::channel(1);
+    /// let node = Node::new(1, rx, tx.clone(), HashMap::new());
     ///
     /// assert_eq!(node.term, 0);
     /// ```
-    pub fn new(id: u64, inbox: Receiver<Message>, peers: HashMap<u64, Sender<Message>>) -> Self {
+    pub fn new(
+        id: u64,
+        inbox: Receiver<Message>,
+        outbox: Sender<Message>,
+        peers: HashMap<u64, Sender<Message>>,
+    ) -> Self {
         assert_ne!(id, 0);
         Self {
             id,
@@ -86,6 +98,7 @@ impl Node {
             next_index: HashMap::new(),
             match_index: HashMap::new(),
             inbox,
+            outbox,
             peers,
             killed: false,
             leader_id: None,
@@ -94,6 +107,7 @@ impl Node {
 
     /// Recover a `Node` from a persistent state file
     /// TODO
+    #[allow(unused_variables)]
     pub fn from_file(
         id: u64,
         inbox: Receiver<Message>,
@@ -124,7 +138,7 @@ impl Node {
     ///
     /// let (tx, rx) = mpsc::channel(32);
     ///
-    /// let node = Node::new(1, rx, HashMap::new());
+    /// let node = Node::new(1, rx, tx.clone(), HashMap::new());
     ///
     /// tokio::spawn(async {
     ///     node.start(100).await.unwrap();
@@ -202,7 +216,15 @@ impl Node {
         }
     }
 
-    async fn handle_client_request(&mut self, s: String, tx: Sender<Message>) -> Result<bool> {
+    // takes the command as a string and a callback channel for the reply
+    //
+    // If we are the leader, this function should store the callback in a data structure inside the
+    // Node so that when this command is committed, we can look up the callback and send the reply
+    async fn handle_client_request(
+        &mut self,
+        s: String,
+        callback: Callback<ClientRequestReply>,
+    ) -> Result<bool> {
         debug!("{}: Received ClientRequest: command = {}", self.id, s);
 
         if self.role != Role::Leader {
@@ -212,11 +234,16 @@ impl Node {
             );
             let reply = ClientRequestReply {
                 success: false,
-                leader_id: self.leader_id,
+                leader: self.leader_id.unwrap_or(0),
+                message: String::new(),
             };
 
-            tx.send(Message::ClientRequestReply(reply)).await?;
+            self.send_reply(reply, callback).await;
         } else {
+            self.log.push(Log {
+                term: self.term,
+                command: s,
+            });
         }
         Ok(false)
     }
@@ -227,9 +254,9 @@ impl Node {
         }
 
         match m {
-            Message::RequestVote(args) => self.handle_request_vote(args).await,
+            Message::RequestVote(args, tx) => self.handle_request_vote(args, tx).await,
             Message::RequestVoteReply(reply) => self.handle_request_vote_reply(reply),
-            Message::AppendEntries(args) => self.handle_append_entries(args).await,
+            Message::AppendEntries(args, tx) => self.handle_append_entries(args, tx).await,
             Message::AppendEntriesReply(reply) => self.handle_append_entries_reply(reply),
             Message::CheckState(tx) => self.handle_check_state(tx).await,
             Message::ClientRequest(str, tx) => self.handle_client_request(str, tx).await,
@@ -241,7 +268,11 @@ impl Node {
         }
     }
 
-    async fn handle_request_vote(&mut self, args: RequestVoteArgs) -> Result<bool> {
+    async fn handle_request_vote(
+        &mut self,
+        args: RequestVoteArgs,
+        callback: Callback<Message>,
+    ) -> Result<bool> {
         let mut reply = RequestVoteReply {
             term: self.term,
             vote_granted: false,
@@ -267,9 +298,6 @@ impl Node {
 
             reply.vote_granted = false;
 
-            self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
-                .await?;
-
             return Ok(false);
         }
 
@@ -283,8 +311,8 @@ impl Node {
                 self.voted_for = Some(args.candidate_id);
                 reply.vote_granted = true;
 
-                self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
-                    .await?;
+                self.send_reply(Message::RequestVoteReply(reply), callback)
+                    .await;
                 return Ok(true);
             } else if args.last_log_term == our_last_term {
                 if args.last_log_index >= our_last_index {
@@ -293,7 +321,7 @@ impl Node {
                     self.voted_for = Some(args.candidate_id);
                     reply.vote_granted = true;
                     self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
-                        .await?;
+                        .await;
                     return Ok(true);
                 } else {
                     debug!("{}: Rejected vote request from {}, log outdated: got term {}, have term {}", self.id, args.candidate_id, our_last_term, args.last_log_term);
@@ -313,8 +341,19 @@ impl Node {
         );
 
         self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
-            .await?;
+            .await;
         Ok(false)
+    }
+
+    async fn send_reply<T>(&self, reply: T, callback: Callback<T>) {
+        match callback {
+            Callback::Mpsc(tx) => {
+                let _ = tx.send(reply).await;
+            }
+            Callback::OneShot(tx) => {
+                let _ = tx.send(reply);
+            }
+        }
     }
 
     fn handle_request_vote_reply(&mut self, reply: RequestVoteReply) -> Result<bool> {
@@ -350,7 +389,11 @@ impl Node {
         Ok(false)
     }
 
-    async fn handle_append_entries(&mut self, args: AppendEntriesArgs) -> Result<bool> {
+    async fn handle_append_entries(
+        &mut self,
+        args: AppendEntriesArgs,
+        callback: Callback<Message>,
+    ) -> Result<bool> {
         debug!(
             "{}: AppendEntries received from {}",
             self.id, args.leader_id
@@ -360,6 +403,7 @@ impl Node {
             term: self.term,
             success: false,
             peer: self.id,
+            next_index: args.prev_log_index,
         };
 
         if args.term > self.term {
@@ -376,8 +420,7 @@ impl Node {
 
             reply.success = false;
 
-            self.send_message(args.leader_id, Message::AppendEntriesReply(reply))
-                .await?;
+            self.send_reply(Message::AppendEntriesReply(reply), callback).await;
             return Ok(false);
         }
 
@@ -392,10 +435,7 @@ impl Node {
 
             reply.success = false;
 
-            // ignore any errors when sending a message
-            let _ = self
-                .send_message(args.leader_id, Message::AppendEntriesReply(reply))
-                .await;
+            self.send_reply(Message::AppendEntriesReply(reply), callback).await;
             return Ok(false);
         }
 
@@ -410,8 +450,7 @@ impl Node {
 
             reply.success = false;
 
-            self.send_message(args.leader_id, Message::AppendEntriesReply(reply))
-                .await?;
+            self.send_reply(Message::AppendEntriesReply(reply), callback).await;
             return Ok(false);
         }
 
@@ -442,28 +481,48 @@ impl Node {
         if args.leader_commit > self.commit_index {
             let idx_last_new_entry = self.log.len() - 1;
 
+            let old_commit_index = self.commit_index;
+
             self.commit_index = min(idx_last_new_entry as u64, args.leader_commit);
 
-            self.check_last_applied();
+            self.check_last_applied(old_commit_index)?;
         }
 
         self.voted_for = Some(args.leader_id);
         reply.success = true;
-        self.send_message(args.leader_id, Message::AppendEntriesReply(reply))
-            .await?;
+        // make sure to tell the leader what our next index is in case this message beomces stale
+        // so that the leader can ensure that next index increases monotoonically
+        reply.next_index = self.log.len() as u64 + 1;
         debug!(
             "{}: AppendEntries from {} successful: Current log {:?}, commit_index {}",
             self.id, args.leader_id, self.log, self.commit_index
         );
+        self.send_reply(Message::AppendEntriesReply(reply), callback).await;
 
         // reset the timer
         Ok(true)
     }
 
-    fn check_last_applied(&mut self) {
+    fn check_last_applied(&mut self, old_commit_index: u64) -> Result<()> {
+        for i in old_commit_index..self.commit_index {
+            debug!(
+                "{}: applying {} to state machine",
+                self.id, self.log[i as usize].command
+            );
+            let cmd = &self.log[i as usize].command.clone();
+
+            self.apply(cmd)?;
+        }
+
         todo!()
     }
 
+    #[allow(unused_variables)]
+    fn apply(&mut self, command: &str) -> Result<()> {
+        todo!()
+    }
+
+    // a bit tricky with the single thread loop.
     fn handle_append_entries_reply(&mut self, reply: AppendEntriesReply) -> Result<bool> {
         if reply.term > self.term {
             self.become_follower(reply.term);
@@ -552,8 +611,11 @@ impl Node {
 
         for peer in self.peers.keys() {
             debug!("{}: sending request vote to {}", self.id, peer);
-            self.send_message(*peer, Message::RequestVote(request.clone()))
-                .await?;
+            self.send_message(
+                *peer,
+                Message::RequestVote(request.clone(), Callback::Mpsc(self.outbox.clone())),
+            )
+            .await;
         }
 
         Ok(())
@@ -576,8 +638,11 @@ impl Node {
 
         for peer in self.peers.keys() {
             debug!("{}: sending heartbeat to {}", self.id, peer);
-            self.send_message(*peer, Message::AppendEntries(request.clone()))
-                .await?;
+            self.send_message(
+                *peer,
+                Message::AppendEntries(request.clone(), Callback::Mpsc(self.outbox.clone())),
+            )
+            .await;
         }
         Ok(())
     }
@@ -592,16 +657,21 @@ impl Node {
     fn become_leader(&mut self) {
         self.role = Role::Leader;
         self.leader_id = Some(self.id);
+
+        // initialize next index and match index
+        for peer in self.peers.keys() {
+            self.next_index.insert(*peer, self.log.len());
+            self.match_index.insert(*peer, 0);
+        }
     }
 
     /// send a message to a given peer
-    async fn send_message(&self, peer: u64, m: Message) -> Result<()> {
+    async fn send_message(&self, peer: u64, m: Message) {
         let sender = self
             .peers
             .get(&peer)
             .expect(format!("{}: Looked for peer {}, and missed", self.id, peer).as_str());
         let _ = sender.send(m).await;
-        Ok(())
     }
 }
 #[cfg(test)]
@@ -628,7 +698,7 @@ mod tests {
     async fn test_one_node_election() {
         let (tx, rx) = tokio::sync::mpsc::channel(64);
         let (state_tx, mut state_rx) = tokio::sync::mpsc::channel(16);
-        let node = Node::new(1, rx, HashMap::new());
+        let node = Node::new(1, rx, tx.clone(), HashMap::new());
 
         tokio::spawn(async move {
             node.start(MIN_DELAY).await.unwrap();
@@ -678,16 +748,19 @@ mod tests {
         let node_1 = Node::new(
             1,
             rx_1,
+            tx_1.clone(),
             HashMap::from([(2, tx_2.clone()), (3, tx_3.clone())]),
         );
         let node_2 = Node::new(
             2,
             rx_2,
+            tx_2.clone(),
             HashMap::from([(1, tx_1.clone()), (3, tx_3.clone())]),
         );
         let node_3 = Node::new(
             3,
             rx_3,
+            tx_3.clone(),
             HashMap::from([(1, tx_1.clone()), (2, tx_2.clone())]),
         );
 

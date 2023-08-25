@@ -10,5 +10,5 @@ pub mod rpc {
 
 pub use error::{Error, Result};
 pub use node::Node;
-pub use common::Message;
+pub use common::{Message, Callback};
 pub use helpers::init_local_nodes;

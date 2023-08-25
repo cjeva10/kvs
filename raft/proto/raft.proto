@@ -2,10 +2,8 @@ syntax = "proto3";
 package raft;
 
 service Raft {
-    rpc RequestVote (RequestVoteArgs) returns (Empty);
-    rpc AppendEntries (AppendEntriesArgs) returns (Empty);
-    rpc ReplyToRequestVote (RequestVoteReply) returns (Empty);
-    rpc ReplyToAppendEntries (AppendEntriesReply) returns (Empty);
+    rpc RequestVote (RequestVoteArgs) returns (RequestVoteReply);
+    rpc AppendEntries (AppendEntriesArgs) returns (AppendEntriesReply);
     rpc ClientRequest (ClientRequestArgs) returns (ClientRequestReply);
 }
 
@@ -33,15 +31,11 @@ message AppendEntriesArgs {
     uint64 leaderCommit = 6;
 }
 
-message Log {
-    uint64 term = 1;
-    string command = 2;
-}
-
 message AppendEntriesReply {
     uint64 term = 1;
     bool success = 2;
     uint64 peer = 3;
+    uint64 nextIndex = 4;
 }
 
 message ClientRequestArgs {
@@ -51,5 +45,10 @@ message ClientRequestArgs {
 message ClientRequestReply {
     bool success = 1;
     uint64 leader = 2;
+    string message = 3;
 }
 
+message Log {
+    uint64 term = 1;
+    string command = 2;
+}

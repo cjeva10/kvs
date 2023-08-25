@@ -1,6 +1,9 @@
-use crate::rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply};
+use crate::rpc::{ClientRequestReply, AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply};
 use std::collections::HashMap;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::{
+    mpsc::Sender,
+    oneshot::Sender as OneShotSender,
+};
 
 // for checking what the current state of the node is
 #[derive(Debug, PartialEq, Clone)]
@@ -27,21 +30,22 @@ pub enum Role {
     Leader,
 }
 
-#[derive(Debug, Clone)]
-pub struct ClientRequestReply {
-    pub success: bool,
-    pub leader_id: Option<u64>,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Message {
-    AppendEntries(AppendEntriesArgs),
+    AppendEntries(AppendEntriesArgs, Callback<Message>),
     AppendEntriesReply(AppendEntriesReply),
-    RequestVote(RequestVoteArgs),
+    RequestVote(RequestVoteArgs, Callback<Message>),
     RequestVoteReply(RequestVoteReply),
     CheckState(Sender<Message>),
     State(State),
-    ClientRequest(String, Sender<Message>),
+    ClientRequest(String, Callback<ClientRequestReply>),
     ClientRequestReply(ClientRequestReply),
     Kill,
 }
+
+#[derive(Debug)]
+pub enum Callback<T> {
+    Mpsc(Sender<T>),
+    OneShot(OneShotSender<T>),
+}
+

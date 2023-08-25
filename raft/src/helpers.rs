@@ -12,7 +12,7 @@ pub fn init_local_nodes(num: usize) -> (Vec<Node>, Vec<Sender<Message>>) {
 
     for i in 0..num {
         let (tx, rx) = tokio::sync::mpsc::channel::<Message>(64);
-        nodes.push(Node::new(i as u64 + 1, rx, HashMap::new()));
+        nodes.push(Node::new(i as u64 + 1, rx, tx.clone(), HashMap::new()));
         senders.push(tx);
     }
 
