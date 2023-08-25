@@ -1,9 +1,9 @@
-use crate::rpc::{ClientRequestReply, AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply};
-use std::collections::HashMap;
-use tokio::sync::{
-    mpsc::Sender,
-    oneshot::Sender as OneShotSender,
+use crate::rpc::{
+    AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, Log, RequestVoteArgs,
+    RequestVoteReply,
 };
+use std::collections::HashMap;
+use tokio::sync::{mpsc::Sender, oneshot::Sender as OneShotSender};
 
 // for checking what the current state of the node is
 #[derive(Debug, PartialEq, Clone)]
@@ -50,10 +50,8 @@ pub struct OutboundMessage {
     pub from: u64,
 }
 
-
 #[derive(Debug)]
 pub enum Callback<T> {
     Mpsc(Sender<T>),
     OneShot(OneShotSender<T>),
 }
-
