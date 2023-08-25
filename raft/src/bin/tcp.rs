@@ -1,4 +1,5 @@
 use raft::rpc::{
+    raft_client::RaftClient,
     raft_server::{Raft, RaftServer},
     AppendEntriesArgs, AppendEntriesReply, ClientRequestArgs, ClientRequestReply, RequestVoteArgs,
     RequestVoteReply,
@@ -61,7 +62,10 @@ impl Raft for MyRaft {
 
         let _ = self
             .inbox
-            .send(Message::AppendEntries(request.into_inner(), Callback::OneShot(tx)))
+            .send(Message::AppendEntries(
+                request.into_inner(),
+                Callback::OneShot(tx),
+            ))
             .await;
 
         match rx.await {
@@ -86,7 +90,10 @@ impl Raft for MyRaft {
 
         let _ = self
             .inbox
-            .send(Message::ClientRequest(request.into_inner().command, Callback::OneShot(tx)))
+            .send(Message::ClientRequest(
+                request.into_inner().command,
+                Callback::OneShot(tx),
+            ))
             .await;
 
         match rx.await {
@@ -102,14 +109,66 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     let addr = "[::1]:50051".parse().unwrap();
-    let (tx, rx) = tokio::sync::mpsc::channel(64);
+    let (to_inbox, inbox) = tokio::sync::mpsc::channel(64);
+    let (to_outbox, mut outbox) = tokio::sync::mpsc::channel(64);
 
-    let node = Node::new(1, rx, tx.clone(), HashMap::new());
-    let rpc = MyRaft { inbox: tx.clone() };
+    let node = Node::new(
+        1,
+        inbox,
+        to_inbox.clone(),
+        to_outbox.clone(),
+        HashMap::new(),
+    );
+
+    let rpc = MyRaft {
+        inbox: to_inbox.clone(),
+    };
 
     println!("Raft listening on {}", addr);
 
+    // start the node on a new thread
     tokio::spawn(async { node.start(MIN_DELAY).await });
+
+    // start the client
+    tokio::spawn(async move {
+        loop {
+            let request = outbox.recv().await.unwrap();
+            match request.message {
+                Message::AppendEntries(args, callback) => {
+                    // TODO need a map from peer id to url
+                    let mut client = RaftClient::connect("http://[::1]:50051").await.unwrap();
+                    let response = client.append_entries(Request::new(args)).await.unwrap();
+                    println!("RESPONSE={:?}", response);
+                    match callback {
+                        Callback::Mpsc(mpsc) => {
+                            let _ = mpsc
+                                .send(Message::AppendEntriesReply(response.into_inner()))
+                                .await;
+                        }
+                        Callback::OneShot(once) => {
+                            let _ = once.send(Message::AppendEntriesReply(response.into_inner()));
+                        }
+                    }
+                }
+                Message::RequestVote(args, callback) => {
+                    let mut client = RaftClient::connect("http://[::1]:50051").await.unwrap();
+                    let response = client.request_vote(Request::new(args)).await.unwrap();
+                    println!("RESPONSE={:?}", response);
+                    match callback {
+                        Callback::Mpsc(mpsc) => {
+                            let _ = mpsc
+                                .send(Message::RequestVoteReply(response.into_inner()))
+                                .await;
+                        }
+                        Callback::OneShot(once) => {
+                            let _ = once.send(Message::RequestVoteReply(response.into_inner()));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
 
     Server::builder()
         .add_service(RaftServer::new(rpc))

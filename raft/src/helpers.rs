@@ -11,9 +11,10 @@ pub fn init_local_nodes(num: usize) -> (Vec<Node>, Vec<Sender<Message>>) {
     let mut senders = Vec::new();
 
     for i in 0..num {
-        let (tx, rx) = tokio::sync::mpsc::channel::<Message>(64);
-        nodes.push(Node::new(i as u64 + 1, rx, tx.clone(), HashMap::new()));
-        senders.push(tx);
+        let (to_inbox, inbox) = tokio::sync::mpsc::channel::<Message>(64);
+        let (to_outbox, _) = tokio::sync::mpsc::channel(64);
+        nodes.push(Node::new(i as u64 + 1, inbox, to_inbox.clone(), to_outbox.clone(), HashMap::new()));
+        senders.push(to_inbox);
     }
 
     for i in 0..num {

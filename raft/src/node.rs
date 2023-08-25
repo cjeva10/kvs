@@ -1,5 +1,5 @@
 use crate::{
-    common::{Callback, Message, Role, State},
+    common::{Callback, OutboundMessage, Message, Role, State},
     rpc::{
         AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, Log, RequestVoteArgs,
         RequestVoteReply,
@@ -45,8 +45,8 @@ pub struct Node {
     ///
     /// TODO: Create a network thread to send RPC messages on this channel
     pub inbox: Receiver<Message>,
-    pub outbox: Sender<Message>,
-
+    pub to_inbox: Sender<Message>,
+    pub outbox: Sender<OutboundMessage>,
     /// Store network peers as a `HashMap` from id's to a `Sender`
     ///
     /// TODO: Create a network thread that simply receives on these channels
@@ -71,15 +71,17 @@ impl Node {
     /// use tokio::sync::mpsc;
     ///
     ///
-    /// let (tx, rx) = mpsc::channel(1);
-    /// let node = Node::new(1, rx, tx.clone(), HashMap::new());
+    /// let (to_inbox, inbox) = mpsc::channel(1);
+    /// let (to_outbox, outbox) = mpsc::channel(1);
+    /// let node = Node::new(1, inbox, to_inbox.clone(), to_outbox.clone(), HashMap::new());
     ///
     /// assert_eq!(node.term, 0);
     /// ```
     pub fn new(
         id: u64,
         inbox: Receiver<Message>,
-        outbox: Sender<Message>,
+        to_inbox: Sender<Message>,
+        outbox: Sender<OutboundMessage>,
         peers: HashMap<u64, Sender<Message>>,
     ) -> Self {
         assert_ne!(id, 0);
@@ -98,6 +100,7 @@ impl Node {
             next_index: HashMap::new(),
             match_index: HashMap::new(),
             inbox,
+            to_inbox,
             outbox,
             peers,
             killed: false,
@@ -136,16 +139,17 @@ impl Node {
     ///     time::Duration,
     /// };
     ///
-    /// let (tx, rx) = mpsc::channel(32);
+    /// let (to_inbox, inbox) = mpsc::channel(32);
+    /// let (tx, _) = mpsc::channel(32);
     ///
-    /// let node = Node::new(1, rx, tx.clone(), HashMap::new());
+    /// let node = Node::new(1, inbox, to_inbox.clone(), tx.clone(), HashMap::new());
     ///
     /// tokio::spawn(async {
     ///     node.start(100).await.unwrap();
     /// });
     ///
     /// let (state_tx, mut state_rx) = mpsc::channel(32);
-    /// tx.send(Message::CheckState(state_tx)).await.unwrap();
+    /// to_inbox.send(Message::CheckState(state_tx)).await.unwrap();
     ///
     /// tokio::time::sleep(Duration::from_millis(10)).await;
     ///
@@ -420,7 +424,8 @@ impl Node {
 
             reply.success = false;
 
-            self.send_reply(Message::AppendEntriesReply(reply), callback).await;
+            self.send_reply(Message::AppendEntriesReply(reply), callback)
+                .await;
             return Ok(false);
         }
 
@@ -435,7 +440,8 @@ impl Node {
 
             reply.success = false;
 
-            self.send_reply(Message::AppendEntriesReply(reply), callback).await;
+            self.send_reply(Message::AppendEntriesReply(reply), callback)
+                .await;
             return Ok(false);
         }
 
@@ -450,7 +456,8 @@ impl Node {
 
             reply.success = false;
 
-            self.send_reply(Message::AppendEntriesReply(reply), callback).await;
+            self.send_reply(Message::AppendEntriesReply(reply), callback)
+                .await;
             return Ok(false);
         }
 
@@ -497,7 +504,8 @@ impl Node {
             "{}: AppendEntries from {} successful: Current log {:?}, commit_index {}",
             self.id, args.leader_id, self.log, self.commit_index
         );
-        self.send_reply(Message::AppendEntriesReply(reply), callback).await;
+        self.send_reply(Message::AppendEntriesReply(reply), callback)
+            .await;
 
         // reset the timer
         Ok(true)
@@ -613,7 +621,7 @@ impl Node {
             debug!("{}: sending request vote to {}", self.id, peer);
             self.send_message(
                 *peer,
-                Message::RequestVote(request.clone(), Callback::Mpsc(self.outbox.clone())),
+                Message::RequestVote(request.clone(), Callback::Mpsc(self.to_inbox.clone())),
             )
             .await;
         }
@@ -640,7 +648,7 @@ impl Node {
             debug!("{}: sending heartbeat to {}", self.id, peer);
             self.send_message(
                 *peer,
-                Message::AppendEntries(request.clone(), Callback::Mpsc(self.outbox.clone())),
+                Message::AppendEntries(request.clone(), Callback::Mpsc(self.to_inbox.clone())),
             )
             .await;
         }
@@ -696,9 +704,10 @@ mod tests {
     // A single node should start an election and elect itself the leader
     #[tokio::test]
     async fn test_one_node_election() {
-        let (tx, rx) = tokio::sync::mpsc::channel(64);
+        let (to_inbox, inbox) = tokio::sync::mpsc::channel(64);
+        let (to_outbox, outbox) = tokio::sync::mpsc::channel(64);
         let (state_tx, mut state_rx) = tokio::sync::mpsc::channel(16);
-        let node = Node::new(1, rx, tx.clone(), HashMap::new());
+        let node = Node::new(1, inbox, to_inbox.clone(), to_outbox.clone(), HashMap::new());
 
         tokio::spawn(async move {
             node.start(MIN_DELAY).await.unwrap();
@@ -706,7 +715,7 @@ mod tests {
 
         tokio::time::sleep(Duration::from_millis(MIN_DELAY * 3 / 2)).await;
 
-        tx.send(Message::CheckState(state_tx.clone()))
+        to_inbox.send(Message::CheckState(state_tx.clone()))
             .await
             .unwrap();
 
@@ -737,48 +746,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_three_node_election() {
-        let (tx_1, rx_1) = tokio::sync::mpsc::channel(64);
-        let (tx_2, rx_2) = tokio::sync::mpsc::channel(64);
-        let (tx_3, rx_3) = tokio::sync::mpsc::channel(64);
-
+        let (nodes, senders) = init_local_nodes(3);
         let (state_tx_1, mut state_rx_1) = tokio::sync::mpsc::channel(4);
         let (state_tx_2, mut state_rx_2) = tokio::sync::mpsc::channel(4);
         let (state_tx_3, mut state_rx_3) = tokio::sync::mpsc::channel(4);
 
-        let node_1 = Node::new(
-            1,
-            rx_1,
-            tx_1.clone(),
-            HashMap::from([(2, tx_2.clone()), (3, tx_3.clone())]),
-        );
-        let node_2 = Node::new(
-            2,
-            rx_2,
-            tx_2.clone(),
-            HashMap::from([(1, tx_1.clone()), (3, tx_3.clone())]),
-        );
-        let node_3 = Node::new(
-            3,
-            rx_3,
-            tx_3.clone(),
-            HashMap::from([(1, tx_1.clone()), (2, tx_2.clone())]),
-        );
-
-        tokio::spawn(async move {
-            node_1.start(MIN_DELAY).await.unwrap();
-        });
-        tokio::spawn(async move {
-            node_2.start(MIN_DELAY).await.unwrap();
-        });
-        tokio::spawn(async move {
-            node_3.start(MIN_DELAY).await.unwrap();
-        });
+        for node in nodes {
+            tokio::spawn(async {
+                let _ = node.start(MIN_DELAY).await;
+            });
+        }
 
         tokio::time::sleep(Duration::from_millis(MIN_DELAY * 2)).await;
 
-        tx_1.send(Message::CheckState(state_tx_1)).await.unwrap();
-        tx_2.send(Message::CheckState(state_tx_2)).await.unwrap();
-        tx_3.send(Message::CheckState(state_tx_3)).await.unwrap();
+        senders[0].send(Message::CheckState(state_tx_1)).await.unwrap();
+        senders[1].send(Message::CheckState(state_tx_2)).await.unwrap();
+        senders[2].send(Message::CheckState(state_tx_3)).await.unwrap();
 
         tokio::time::sleep(Duration::from_millis(100)).await;
 

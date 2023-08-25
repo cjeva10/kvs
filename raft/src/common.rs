@@ -44,6 +44,14 @@ pub enum Message {
 }
 
 #[derive(Debug)]
+pub struct OutboundMessage {
+    pub message: Message,
+    pub to: u64,
+    pub from: u64,
+}
+
+
+#[derive(Debug)]
 pub enum Callback<T> {
     Mpsc(Sender<T>),
     OneShot(OneShotSender<T>),
