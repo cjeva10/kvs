@@ -17,9 +17,17 @@ So far, I've completed the following work.
  - Asynchronous db access.
  - Simple client CLI for sending messages to server.
  - Unit testing for Redis Serialization crate.
+ - Raft
+   - Main event loop to read RPC requests and tick timer.
+   - Client / Server traits for implementing multiple network types.
+   - Implemented networks for in-memory channels and gRPC communication.
+   - Implemented leader election.
+   - Implemented RPC handlers.
 
 ## Roadmap
 
+ - Distributed consensus with Raft
+   - Need to work on leader AppendEntries logic.
+   - Further unit testing on RPC methods.
  - Tests for server, client, and db crates.
  - Key sharding
- - Distributed consensus with Raft
