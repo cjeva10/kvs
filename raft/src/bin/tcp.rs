@@ -5,11 +5,11 @@ use raft::rpc::{
 };
 use raft::{Message, Node};
 use std::collections::HashMap;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::Sender;
 use tonic::{transport::Server, Request, Response, Status};
 
 pub struct MyRaft {
-    inbox: UnboundedSender<Message>,
+    inbox: Sender<Message>,
 }
 
 #[tonic::async_trait]
@@ -76,10 +76,10 @@ impl Raft for MyRaft {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse().unwrap();
-    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx, rx) = tokio::sync::mpsc::channel(64);
 
     let node = Node::new(1, rx, HashMap::new());
-    let rpc = MyRaft { inbox: tx };
+    let rpc = MyRaft { inbox: tx.clone() };
 
     println!("Raft listening on {}", addr);
 

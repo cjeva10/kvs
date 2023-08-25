@@ -14,7 +14,7 @@ async fn main() -> Result<()> {
 
     for node in nodes {
         handles.push(tokio::spawn(async move {
-            node.start(MIN_DELAY).await;
+            node.start(MIN_DELAY).await
         }));
     }
 

@@ -4,17 +4,11 @@ use crate::{
     Error, Result,
 };
 use log::{debug, warn};
-use rand::{thread_rng, Rng};
-use std::{
-    cmp::min,
-    collections::HashMap,
-    path::PathBuf,
-    sync::mpsc::{Receiver, Sender},
-    time::{Duration, Instant},
-};
+use rand::Rng;
+use std::{cmp::min, collections::HashMap, path::PathBuf};
 use tokio::{
-    sync::mpsc::{UnboundedReceiver, UnboundedSender},
-    time::timeout,
+    sync::mpsc::{Receiver, Sender},
+    time::{timeout, Duration, Instant},
 };
 
 /// An instance of a Raft Node
@@ -47,11 +41,11 @@ pub struct Node {
     /// Receive all messages on a single channel
     ///
     /// TODO: Create a network thread to send RPC messages on this channel
-    pub inbox: UnboundedReceiver<Message>,
+    pub inbox: Receiver<Message>,
     /// Store network peers as a `HashMap` from id's to a `Sender`
     ///
     /// TODO: Create a network thread that simply receives on these channels
-    pub peers: HashMap<u64, UnboundedSender<Message>>,
+    pub peers: HashMap<u64, Sender<Message>>,
 
     /// For manually shutting down the node in testing
     pub killed: bool,
@@ -66,22 +60,16 @@ impl Node {
     ///
     /// ```rust
     /// use raft::Node;
-    /// use std::{
-    ///     collections::HashMap,
-    ///     sync::mpsc,
-    /// };
+    /// use std::collections::HashMap;
+    /// use tokio::sync::mpsc;
     ///
     ///
-    /// let (_, rx) = mpsc::channel();
+    /// let (_, rx) = mpsc::channel(1);
     /// let node = Node::new(1, rx, HashMap::new());
     ///
     /// assert_eq!(node.term, 0);
     /// ```
-    pub fn new(
-        id: u64,
-        inbox: UnboundedReceiver<Message>,
-        peers: HashMap<u64, UnboundedSender<Message>>,
-    ) -> Self {
+    pub fn new(id: u64, inbox: Receiver<Message>, peers: HashMap<u64, Sender<Message>>) -> Self {
         assert_ne!(id, 0);
         Self {
             id,
@@ -124,92 +112,98 @@ impl Node {
     /// # Examples
     ///
     /// ```rust
+    /// # tokio_test::block_on(async {
+    ///
     /// use raft::{Message, Node};
     /// use std::{
     ///     collections::HashMap,
+    /// };
+    /// use tokio::{
     ///     sync::mpsc,
     ///     time::Duration,
-    ///     thread,
     /// };
     ///
-    /// let (tx, rx) = mpsc::channel();
+    /// let (tx, rx) = mpsc::channel(32);
     ///
     /// let node = Node::new(1, rx, HashMap::new());
     ///
-    /// thread::spawn(|| {
-    ///     node.start(100).unwrap();
+    /// tokio::spawn(async {
+    ///     node.start(100).await.unwrap();
     /// });
     ///
-    /// let (state_tx, state_rx) = mpsc::channel();
-    /// tx.send(Message::CheckState(state_tx)).unwrap();
+    /// let (state_tx, mut state_rx) = mpsc::channel(32);
+    /// tx.send(Message::CheckState(state_tx)).await.unwrap();
     ///
-    /// thread::sleep(Duration::from_millis(10));
+    /// tokio::time::sleep(Duration::from_millis(10)).await;
     ///
-    /// let Message::State(state) = state_rx.recv().unwrap() else {
+    /// let Message::State(state) = state_rx.recv().await.unwrap() else {
     ///     panic!("Expected Message::State");
     /// };
     ///
     /// assert_eq!(state.term, 0);
+    /// # })
     /// ```
-    pub async fn start(&mut self, min_delay: u64) -> Result<()> {
+    pub async fn start(mut self, min_delay: u64) -> Result<()> {
         if min_delay < 50 {
             warn!("Minimum timeout of {}ms might be too low", min_delay);
         }
 
+        // initialize the timer
         let mut t = Instant::now();
-        let mut rng = thread_rng();
+        let mut time_left = match self.role {
+            Role::Follower | Role::Candidate => {
+                Duration::from_millis(min_delay + rand::thread_rng().gen_range(0..50))
+            }
+            Role::Leader => Duration::from_millis(min_delay / 2),
+        };
+        debug!("Setting initial timeout to {}", time_left.as_millis());
+
+        // infinite loop where we check for messages
+        //
+        // If the inbox is empty, the thread blocks until the timeout is reached. Then the Node
+        // will `tick` either calling an election or triggering heartbeats.
         loop {
-            // handle all the messages in our inbox
-            let mut timer = match self.role {
-                Role::Follower | Role::Candidate => {
-                    Duration::from_millis(min_delay + rng.gen_range(0..min_delay / 2))
+            match timeout(time_left, self.inbox.recv()).await {
+                Ok(Some(m)) => {
+                    debug!("Got a message {:?}", m);
+                    // if a read returns true, that means we should restart our tick timer
+                    if self.handle_message(m).await? {
+                        t = Instant::now();
+                        time_left = match self.role {
+                            Role::Follower | Role::Candidate => Duration::from_millis(
+                                min_delay + rand::thread_rng().gen_range(0..50),
+                            ),
+                            Role::Leader => Duration::from_millis(min_delay / 2),
+                        }
+                    // if read returns false, then simply decrement the time elapsed
+                    } else {
+                        time_left -= t.elapsed();
+                        t = Instant::now();
+                    };
                 }
-                Role::Leader => Duration::from_millis(min_delay / 2),
-            };
-            debug!("Setting initial timeout to {}", timer.as_millis());
-            loop {
-                // match self.inbox.recv_timeout(timeout) {
-                loop {
-                    match timeout(timer, self.inbox.recv()).await {
-                        Ok(Some(m)) => {
-                            debug!("Got a message {:?}", m);
-                            // if a read returns true, that means we should restart our tick timer
-                            if self.handle_message(m)? {
-                                t = Instant::now();
-                                timer = match self.role {
-                                    Role::Follower | Role::Candidate => Duration::from_millis(
-                                        min_delay + rng.gen_range(0..min_delay / 2),
-                                    ),
-                                    Role::Leader => Duration::from_millis(min_delay / 2),
-                                }
-                            // if read returns false, then simply decrement the time elapsed
-                            } else {
-                                timer -= t.elapsed();
-                            };
+                Err(_) => {
+                    debug!(
+                        "{}: Timer timeout: term {}, role {:?}",
+                        self.id, self.term, self.role
+                    );
+                    self.tick().await?;
+                    t = Instant::now();
+                    time_left = match self.role {
+                        Role::Leader => Duration::from_millis(50),
+                        Role::Follower | Role::Candidate => {
+                            Duration::from_millis(min_delay + rand::thread_rng().gen_range(0..50))
                         }
-                        Err(_) => {
-                            debug!(
-                                "{}: Timer timeout: term {}, role {:?}",
-                                self.id, self.term, self.role
-                            );
-                            self.tick()?;
-                            t = Instant::now();
-                            timer = match self.role {
-                                Role::Leader => Duration::from_millis(50),
-                                Role::Follower | Role::Candidate => Duration::from_millis(100),
-                            };
-                        }
-                        Ok(None) => {
-                            debug!("Broken Inbox: inbox channel disconnected");
-                            return Err(Error::BrokenInbox);
-                        }
-                    }
+                    };
+                }
+                Ok(None) => {
+                    debug!("Broken Inbox: inbox channel disconnected");
+                    return Err(Error::BrokenInbox);
                 }
             }
         }
     }
 
-    fn handle_client_request(&mut self, s: String, tx: UnboundedSender<Message>) -> Result<bool> {
+    async fn handle_client_request(&mut self, s: String, tx: Sender<Message>) -> Result<bool> {
         debug!("{}: Received ClientRequest: command = {}", self.id, s);
 
         if self.role != Role::Leader {
@@ -222,24 +216,24 @@ impl Node {
                 leader_id: self.leader_id,
             };
 
-            tx.send(Message::ClientRequestReply(reply))?;
+            tx.send(Message::ClientRequestReply(reply)).await?;
         } else {
         }
         Ok(false)
     }
 
-    fn handle_message(&mut self, m: Message) -> Result<bool> {
+    async fn handle_message(&mut self, m: Message) -> Result<bool> {
         if self.killed {
             return Ok(true);
         }
 
         match m {
-            Message::RequestVote(args) => self.handle_request_vote(args),
+            Message::RequestVote(args) => self.handle_request_vote(args).await,
             Message::RequestVoteReply(reply) => self.handle_request_vote_reply(reply),
-            Message::AppendEntries(args) => self.handle_append_entries(args),
+            Message::AppendEntries(args) => self.handle_append_entries(args).await,
             Message::AppendEntriesReply(reply) => self.handle_append_entries_reply(reply),
-            Message::CheckState(tx) => self.handle_check_state(tx),
-            Message::ClientRequest(str, tx) => self.handle_client_request(str, tx),
+            Message::CheckState(tx) => self.handle_check_state(tx).await,
+            Message::ClientRequest(str, tx) => self.handle_client_request(str, tx).await,
             Message::State(_) | Message::ClientRequestReply(_) => Ok(false),
             Message::Kill => {
                 self.killed = true;
@@ -248,7 +242,7 @@ impl Node {
         }
     }
 
-    fn handle_request_vote(&mut self, args: RequestVoteArgs) -> Result<bool> {
+    async fn handle_request_vote(&mut self, args: RequestVoteArgs) -> Result<bool> {
         let mut reply = RequestVoteReply {
             term: self.term,
             vote_granted: false,
@@ -274,7 +268,8 @@ impl Node {
 
             reply.vote_granted = false;
 
-            self.send_message(args.candidate_id, Message::RequestVoteReply(reply))?;
+            self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
+                .await?;
 
             return Ok(false);
         }
@@ -289,7 +284,8 @@ impl Node {
                 self.voted_for = Some(args.candidate_id);
                 reply.vote_granted = true;
 
-                self.send_message(args.candidate_id, Message::RequestVoteReply(reply))?;
+                self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
+                    .await?;
                 return Ok(true);
             } else if args.last_log_term == our_last_term {
                 if args.last_log_index >= our_last_index {
@@ -297,7 +293,8 @@ impl Node {
 
                     self.voted_for = Some(args.candidate_id);
                     reply.vote_granted = true;
-                    self.send_message(args.candidate_id, Message::RequestVoteReply(reply))?;
+                    self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
+                        .await?;
                     return Ok(true);
                 } else {
                     debug!("{}: Rejected vote request from {}, log outdated: got term {}, have term {}", self.id, args.candidate_id, our_last_term, args.last_log_term);
@@ -316,7 +313,8 @@ impl Node {
             self.voted_for.unwrap()
         );
 
-        self.send_message(args.candidate_id, Message::RequestVoteReply(reply))?;
+        self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
+            .await?;
         Ok(false)
     }
 
@@ -353,7 +351,7 @@ impl Node {
         Ok(false)
     }
 
-    fn handle_append_entries(&mut self, args: AppendEntriesArgs) -> Result<bool> {
+    async fn handle_append_entries(&mut self, args: AppendEntriesArgs) -> Result<bool> {
         debug!(
             "{}: AppendEntries received from {}",
             self.id, args.leader_id
@@ -379,7 +377,8 @@ impl Node {
 
             reply.success = false;
 
-            self.send_message(args.leader_id, Message::AppendEntriesReply(reply))?;
+            self.send_message(args.leader_id, Message::AppendEntriesReply(reply))
+                .await?;
             return Ok(false);
         }
 
@@ -394,7 +393,10 @@ impl Node {
 
             reply.success = false;
 
-            self.send_message(args.leader_id, Message::AppendEntriesReply(reply))?;
+            // ignore any errors when sending a message
+            let _ = self
+                .send_message(args.leader_id, Message::AppendEntriesReply(reply))
+                .await;
             return Ok(false);
         }
 
@@ -409,7 +411,8 @@ impl Node {
 
             reply.success = false;
 
-            self.send_message(args.leader_id, Message::AppendEntriesReply(reply))?;
+            self.send_message(args.leader_id, Message::AppendEntriesReply(reply))
+                .await?;
             return Ok(false);
         }
 
@@ -447,7 +450,8 @@ impl Node {
 
         self.voted_for = Some(args.leader_id);
         reply.success = true;
-        self.send_message(args.leader_id, Message::AppendEntriesReply(reply))?;
+        self.send_message(args.leader_id, Message::AppendEntriesReply(reply))
+            .await?;
         debug!(
             "{}: AppendEntries from {} successful: Current log {:?}, commit_index {}",
             self.id, args.leader_id, self.log, self.commit_index
@@ -460,6 +464,7 @@ impl Node {
     fn check_last_applied(&mut self) {
         todo!()
     }
+
     fn handle_append_entries_reply(&mut self, reply: AppendEntriesReply) -> Result<bool> {
         if reply.term > self.term {
             self.become_follower(reply.term);
@@ -481,8 +486,8 @@ impl Node {
         Ok(false)
     }
 
-    fn handle_check_state(&self, tx: UnboundedSender<Message>) -> Result<bool> {
-        tx.send(Message::State(self.state())).unwrap();
+    async fn handle_check_state(&self, tx: Sender<Message>) -> Result<bool> {
+        tx.send(Message::State(self.state())).await.unwrap();
         Ok(false)
     }
 
@@ -505,20 +510,20 @@ impl Node {
 
     /// either call an election if we are a candidate or a follower, else send heartbeats
     /// to all the followers
-    fn tick(&mut self) -> Result<()> {
+    async fn tick(&mut self) -> Result<()> {
         if self.killed {
             return Ok(());
         }
 
         match self.role {
-            Role::Follower | Role::Candidate => self.start_election()?,
-            Role::Leader => self.send_heartbeats()?,
+            Role::Follower | Role::Candidate => self.start_election().await?,
+            Role::Leader => self.send_heartbeats().await?,
         }
 
         Ok(())
     }
 
-    fn start_election(&mut self) -> Result<()> {
+    async fn start_election(&mut self) -> Result<()> {
         self.term += 1;
         self.voted_for = Some(self.id);
         self.votes = 1;
@@ -548,13 +553,14 @@ impl Node {
 
         for peer in self.peers.keys() {
             debug!("{}: sending request vote to {}", self.id, peer);
-            self.send_message(*peer, Message::RequestVote(request.clone()))?;
+            self.send_message(*peer, Message::RequestVote(request.clone()))
+                .await?;
         }
 
         Ok(())
     }
 
-    fn send_heartbeats(&mut self) -> Result<()> {
+    async fn send_heartbeats(&mut self) -> Result<()> {
         debug!(
             "{}: Sending heartbeats to peers: term {}",
             self.id, self.term
@@ -571,7 +577,8 @@ impl Node {
 
         for peer in self.peers.keys() {
             debug!("{}: sending heartbeat to {}", self.id, peer);
-            self.send_message(*peer, Message::AppendEntries(request.clone()))?;
+            self.send_message(*peer, Message::AppendEntries(request.clone()))
+                .await?;
         }
         Ok(())
     }
@@ -589,36 +596,38 @@ impl Node {
     }
 
     /// send a message to a given peer
-    fn send_message(&self, peer: u64, m: Message) -> Result<()> {
-        let sender = self.peers.get(&peer).unwrap();
-        sender.send(m)?;
+    async fn send_message(&self, peer: u64, m: Message) -> Result<()> {
+        let sender = self
+            .peers
+            .get(&peer)
+            .expect(format!("{}: Looked for peer {}, and missed", self.id, peer).as_str());
+        let _ = sender.send(m).await;
         Ok(())
     }
 }
 #[cfg(test)]
 mod tests {
-    use crate::helpers::init_local_nodes;
-
     use super::*;
-    use std::collections::HashMap;
-    use std::thread;
+    use crate::helpers::init_local_nodes;
 
     const MIN_DELAY: u64 = 100;
 
     // A single node should start an election and elect itself the leader
     #[tokio::test]
     async fn test_one_node_election() {
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        let (state_tx, mut state_rx) = tokio::sync::mpsc::unbounded_channel();
-        let mut node = Node::new(1, rx, HashMap::new());
+        let (tx, rx) = tokio::sync::mpsc::channel(64);
+        let (state_tx, mut state_rx) = tokio::sync::mpsc::channel(16);
+        let node = Node::new(1, rx, HashMap::new());
 
         tokio::spawn(async move {
-            node.start(MIN_DELAY).await;
+            node.start(MIN_DELAY).await.unwrap();
         });
 
-        thread::sleep(Duration::from_millis(200));
+        tokio::time::sleep(Duration::from_millis(MIN_DELAY*3/2)).await;
 
-        tx.send(Message::CheckState(state_tx.clone())).unwrap();
+        tx.send(Message::CheckState(state_tx.clone()))
+            .await
+            .unwrap();
 
         let Message::State(state) = state_rx.recv().await.unwrap() else {
             panic!("Expected Message::State");
@@ -647,13 +656,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_three_node_election() {
-        let (tx_1, rx_1) = tokio::sync::mpsc::unbounded_channel::<Message>();
-        let (tx_2, rx_2) = tokio::sync::mpsc::unbounded_channel::<Message>();
-        let (tx_3, rx_3) = tokio::sync::mpsc::unbounded_channel::<Message>();
+        let (tx_1, rx_1) = tokio::sync::mpsc::channel(64);
+        let (tx_2, rx_2) = tokio::sync::mpsc::channel(64);
+        let (tx_3, rx_3) = tokio::sync::mpsc::channel(64);
 
-        let (state_tx_1, mut state_rx_1) = tokio::sync::mpsc::unbounded_channel();
-        let (state_tx_2, mut state_rx_2) = tokio::sync::mpsc::unbounded_channel();
-        let (state_tx_3, mut state_rx_3) = tokio::sync::mpsc::unbounded_channel();
+        let (state_tx_1, mut state_rx_1) = tokio::sync::mpsc::channel(4);
+        let (state_tx_2, mut state_rx_2) = tokio::sync::mpsc::channel(4);
+        let (state_tx_3, mut state_rx_3) = tokio::sync::mpsc::channel(4);
 
         let node_1 = Node::new(
             1,
@@ -672,22 +681,22 @@ mod tests {
         );
 
         tokio::spawn(async move {
-            node_1.start(MIN_DELAY);
+            node_1.start(MIN_DELAY).await.unwrap();
         });
         tokio::spawn(async move {
-            node_2.start(MIN_DELAY);
+            node_2.start(MIN_DELAY).await.unwrap();
         });
-        tokio::spawn(async {
-            node_3.start(MIN_DELAY);
+        tokio::spawn(async move {
+            node_3.start(MIN_DELAY).await.unwrap();
         });
 
-        thread::sleep(Duration::from_millis(200));
+        tokio::time::sleep(Duration::from_millis(200)).await;
 
-        tx_1.send(Message::CheckState(state_tx_1)).unwrap();
-        tx_2.send(Message::CheckState(state_tx_2)).unwrap();
-        tx_3.send(Message::CheckState(state_tx_3)).unwrap();
+        tx_1.send(Message::CheckState(state_tx_1)).await.unwrap();
+        tx_2.send(Message::CheckState(state_tx_2)).await.unwrap();
+        tx_3.send(Message::CheckState(state_tx_3)).await.unwrap();
 
-        thread::sleep(Duration::from_millis(100));
+        tokio::time::sleep(Duration::from_millis(100)).await;
 
         let Message::State(state_1) = state_rx_1.recv().await.unwrap() else {
             panic!("Expected Message::State");
@@ -729,16 +738,11 @@ mod tests {
         assert_eq!(nodes[2].peers.len(), 2);
     }
 
-    fn make_state_channels(
-        num: usize,
-    ) -> (
-        Vec<UnboundedSender<Message>>,
-        Vec<UnboundedReceiver<Message>>,
-    ) {
+    fn make_state_channels(num: usize) -> (Vec<Sender<Message>>, Vec<Receiver<Message>>) {
         let mut senders = Vec::new();
         let mut receivers = Vec::new();
         for _ in 0..num {
-            let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+            let (tx, rx) = tokio::sync::mpsc::channel(64);
             senders.push(tx);
             receivers.push(rx);
         }
@@ -752,24 +756,27 @@ mod tests {
         let (state_tx, mut state_rx) = make_state_channels(3);
 
         for node in nodes {
-            thread::spawn(|| {
-                let _ = node.start(MIN_DELAY);
+            tokio::spawn(async {
+                let _ = node.start(MIN_DELAY).await;
             });
         }
 
-        thread::sleep(Duration::from_millis(200));
+        tokio::time::sleep(Duration::from_millis(200)).await;
 
         tx[0]
             .send(Message::CheckState(state_tx[0].clone()))
+            .await
             .unwrap();
         tx[1]
             .send(Message::CheckState(state_tx[1].clone()))
+            .await
             .unwrap();
         tx[2]
             .send(Message::CheckState(state_tx[2].clone()))
+            .await
             .unwrap();
 
-        thread::sleep(Duration::from_millis(100));
+        tokio::time::sleep(Duration::from_millis(100)).await;
 
         let Message::State(state_1) = state_rx[0].recv().await.unwrap() else {
             panic!("Expected Message::State");
@@ -786,21 +793,21 @@ mod tests {
 
         if state_1.role == Role::Leader {
             debug!("Killed Node 1");
-            tx[0].send(Message::Kill).unwrap();
+            tx[0].send(Message::Kill).await.unwrap();
             killed = 1;
         } else if state_2.role == Role::Leader {
             debug!("Killed Node 2");
-            tx[1].send(Message::Kill).unwrap();
+            tx[1].send(Message::Kill).await.unwrap();
             killed = 2;
         } else if state_3.role == Role::Leader {
             debug!("Killed Node 3");
-            tx[2].send(Message::Kill).unwrap();
+            tx[2].send(Message::Kill).await.unwrap();
             killed = 3;
         } else {
             panic!("No leader elected!");
         }
 
-        thread::sleep(Duration::from_millis(300));
+        tokio::time::sleep(Duration::from_millis(300)).await;
 
         let mut found_leader = 0;
 
@@ -808,12 +815,14 @@ mod tests {
             1 => {
                 tx[1]
                     .send(Message::CheckState(state_tx[1].clone()))
+                    .await
                     .unwrap();
                 tx[2]
                     .send(Message::CheckState(state_tx[2].clone()))
+                    .await
                     .unwrap();
 
-                thread::sleep(Duration::from_millis(50));
+                tokio::time::sleep(Duration::from_millis(50)).await;
 
                 let Message::State(state_2) = state_rx[1].recv().await.unwrap() else {
                     panic!("Expected Message::State");
@@ -832,12 +841,14 @@ mod tests {
             2 => {
                 tx[0]
                     .send(Message::CheckState(state_tx[0].clone()))
+                    .await
                     .unwrap();
                 tx[2]
                     .send(Message::CheckState(state_tx[2].clone()))
+                    .await
                     .unwrap();
 
-                thread::sleep(Duration::from_millis(50));
+                tokio::time::sleep(Duration::from_millis(50)).await;
 
                 let Message::State(state_1) = state_rx[0].recv().await.unwrap() else {
                     panic!("Expected Message::State");
@@ -856,11 +867,13 @@ mod tests {
             3 => {
                 tx[0]
                     .send(Message::CheckState(state_tx[0].clone()))
+                    .await
                     .unwrap();
                 tx[1]
                     .send(Message::CheckState(state_tx[1].clone()))
+                    .await
                     .unwrap();
-                thread::sleep(Duration::from_millis(50));
+                tokio::time::sleep(Duration::from_millis(50)).await;
 
                 let Message::State(state_1) = state_rx[0].recv().await.unwrap() else {
                     panic!("Expected Message::State");

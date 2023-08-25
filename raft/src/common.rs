@@ -1,9 +1,9 @@
 use crate::rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply};
 use std::collections::HashMap;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::Sender;
 
 // for checking what the current state of the node is
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct State {
     pub id: u64,
     pub role: Role,
@@ -27,21 +27,21 @@ pub enum Role {
     Leader,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClientRequestReply {
     pub success: bool,
     pub leader_id: Option<u64>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Message {
     AppendEntries(AppendEntriesArgs),
     AppendEntriesReply(AppendEntriesReply),
     RequestVote(RequestVoteArgs),
     RequestVoteReply(RequestVoteReply),
-    CheckState(UnboundedSender<Message>),
+    CheckState(Sender<Message>),
     State(State),
-    ClientRequest(String, UnboundedSender<Message>),
+    ClientRequest(String, Sender<Message>),
     ClientRequestReply(ClientRequestReply),
     Kill,
 }
