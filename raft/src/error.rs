@@ -12,5 +12,8 @@ pub enum Error {
     /// Failed to send message on channel to the network
     #[error("Failed to send message to peer")]
     FailedSend(#[from] SendError<Message>),
+    #[error("")]
+    TransportError,
+
 }
 pub type Result<T> = std::result::Result<T, Error>;

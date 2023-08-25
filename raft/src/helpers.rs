@@ -1,5 +1,4 @@
 use crate::{common::Message, Node};
-use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
 
 /// Initialize `num` local nodes.
@@ -13,14 +12,20 @@ pub fn init_local_nodes(num: usize) -> (Vec<Node>, Vec<Sender<Message>>) {
     for i in 0..num {
         let (to_inbox, inbox) = tokio::sync::mpsc::channel::<Message>(64);
         let (to_outbox, _) = tokio::sync::mpsc::channel(64);
-        nodes.push(Node::new(i as u64 + 1, inbox, to_inbox.clone(), to_outbox.clone(), HashMap::new()));
+        nodes.push(Node::new(
+            i as u64 + 1,
+            inbox,
+            to_inbox.clone(),
+            to_outbox.clone(),
+            Vec::new(),
+        ));
         senders.push(to_inbox);
     }
 
     for i in 0..num {
         for j in 0..num {
             if i != j {
-                nodes[i].peers.insert(j as u64 + 1, senders[j].clone());
+                nodes[i].peers.push(j as u64 + 1);
             }
         }
     }

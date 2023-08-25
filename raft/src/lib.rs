@@ -3,6 +3,7 @@
 mod common;
 mod error;
 mod helpers;
+pub mod net;
 mod node;
 
 pub mod rpc {

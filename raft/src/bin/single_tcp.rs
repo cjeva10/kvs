@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         inbox,
         to_inbox.clone(),
         to_outbox.clone(),
-        vec![2, 3, 4, 5],
+        Vec::new(),
     );
 
     // start the inner node
@@ -33,13 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // start the client
     let client_handle = tokio::spawn(async move {
-        let peers = HashMap::from([
-            (2, "[::1]:50052".parse().unwrap()),
-            (3, "[::1]:50053".parse().unwrap()),
-            (4, "[::1]:50054".parse().unwrap()),
-            (5, "[::1]:50055".parse().unwrap()),
-        ]);
-
+        let peers = HashMap::new();
         let client = TcpRaftClient::<String>::new(outbox, peers);
 
         client.start().await;

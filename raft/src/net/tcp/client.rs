@@ -1,5 +1,8 @@
+use crate::net::Client;
 use crate::rpc::raft_client::RaftClient;
 use crate::{Callback, Message, OutboundMessage};
+
+use async_trait::async_trait;
 use log::{error, info, warn};
 use std::{collections::HashMap, fmt::Debug};
 use tokio::sync::mpsc::Receiver;
@@ -9,7 +12,7 @@ use tonic::Request;
 /// A `TcpRaftClient` handles sending messages from the
 pub struct TcpRaftClient<D>
 where
-    D: TryInto<tonic::transport::Endpoint> + Clone + Sync + Debug,
+    D: TryInto<tonic::transport::Endpoint> + Clone + Send + Sync + Debug,
     D::Error: Into<StdError>,
 {
     outbox: Receiver<OutboundMessage>,
@@ -18,10 +21,21 @@ where
 
 impl<D> TcpRaftClient<D>
 where
-    D: TryInto<tonic::transport::Endpoint> + Sync + Clone + Debug,
+    D: TryInto<tonic::transport::Endpoint> + Send + Sync + Clone + Debug,
     D::Error: Into<StdError>,
 {
-    pub async fn start(mut self) {
+    pub fn new(outbox: Receiver<OutboundMessage>, peers: HashMap<u64, D>) -> Self {
+        Self { outbox, peers }
+    }
+}
+
+#[async_trait]
+impl<D> Client for TcpRaftClient<D>
+where
+    D: TryInto<tonic::transport::Endpoint> + Send + Sync + Clone + Debug,
+    D::Error: Into<StdError>,
+{
+    async fn start(mut self) {
         loop {
             // wait to receive any messages on the outbox
             let Some(request) = self.outbox.recv().await else {
@@ -31,11 +45,10 @@ where
 
             let to = request.to;
 
-            let endpoint = self
-                .peers
-                .get(&to)
-                .expect(format!("Did not find peer {}", to).as_str())
-                .to_owned();
+            let Some(endpoint) = self.peers.get(&to) else {
+                error!("Failed to find peer {}", to);
+                continue;
+            };
 
             let Ok(mut client) = RaftClient::connect(endpoint.clone()).await else {
                 error!("Failed to connect to client endpoint {:?}", &endpoint);

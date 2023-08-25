@@ -1,12 +1,18 @@
-use crate::rpc::{
-    raft_server::{Raft, RaftServer},
-    AppendEntriesArgs, AppendEntriesReply, ClientRequestArgs, ClientRequestReply, RequestVoteArgs,
-    RequestVoteReply,
+use crate::{
+    net::Server,
+    rpc::{
+        raft_server::{Raft, RaftServer},
+        AppendEntriesArgs, AppendEntriesReply, ClientRequestArgs, ClientRequestReply,
+        RequestVoteArgs, RequestVoteReply,
+    },
+    Error,
 };
-use crate::{Callback, Message};
+use crate::{Callback, Message, Result};
+
+use async_trait::async_trait;
 use std::net::SocketAddr;
 use tokio::sync::mpsc::Sender;
-use tonic::{transport::Server, Request, Response, Status};
+use tonic::{Request, Response, Status};
 
 /// A server object that handles external RPC requests.
 ///
@@ -22,13 +28,17 @@ impl TcpRaftServer {
     pub fn new(inbox: Sender<Message>) -> Self {
         Self { inbox }
     }
+}
 
+#[async_trait]
+impl Server for TcpRaftServer {
     /// Start the RPC server at the given `SocketAddr`
-    pub async fn start(self, addr: SocketAddr) {
-        let _ = Server::builder()
+    async fn serve(self, addr: Option<SocketAddr>) -> Result<()> {
+        tonic::transport::Server::builder()
             .add_service(RaftServer::new(self))
-            .serve(addr)
-            .await;
+            .serve(addr.expect("Missing Socket Address"))
+            .await
+            .map_err(|_| Error::TransportError)
     }
 }
 
@@ -37,7 +47,7 @@ impl Raft for TcpRaftServer {
     async fn request_vote(
         &self,
         request: Request<RequestVoteArgs>,
-    ) -> Result<Response<RequestVoteReply>, Status> {
+    ) -> std::result::Result<Response<RequestVoteReply>, Status> {
         println!("Got a request from {:?}", request.remote_addr());
 
         let reply = RequestVoteReply {
@@ -65,7 +75,7 @@ impl Raft for TcpRaftServer {
     async fn append_entries(
         &self,
         request: Request<AppendEntriesArgs>,
-    ) -> Result<Response<AppendEntriesReply>, Status> {
+    ) -> std::result::Result<Response<AppendEntriesReply>, Status> {
         println!("Got a request from {:?}", request.remote_addr());
 
         let reply = AppendEntriesReply {
@@ -94,7 +104,7 @@ impl Raft for TcpRaftServer {
     async fn client_request(
         &self,
         request: Request<ClientRequestArgs>,
-    ) -> Result<Response<ClientRequestReply>, Status> {
+    ) -> std::result::Result<Response<ClientRequestReply>, Status> {
         println!("Got a request from {:?}", request.remote_addr());
 
         let reply = ClientRequestReply {

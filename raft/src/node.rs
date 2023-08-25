@@ -1,5 +1,5 @@
 use crate::{
-    common::{Callback, OutboundMessage, Message, Role, State},
+    common::{Callback, Message, OutboundMessage, Role, State},
     rpc::{
         AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, Log, RequestVoteArgs,
         RequestVoteReply,
@@ -42,16 +42,17 @@ pub struct Node {
     pub match_index: HashMap<u64, usize>,
 
     /// Receive all messages on a single channel
-    ///
-    /// TODO: Create a network thread to send RPC messages on this channel
     pub inbox: Receiver<Message>,
+    /// Store a reference to our inbox `Sender` half so that we can use it as a callback
     pub to_inbox: Sender<Message>,
+    /// For outgoing AppendEntries and RequestVote RPC messages
     pub outbox: Sender<OutboundMessage>,
-    /// Store network peers as a `HashMap` from id's to a `Sender`
-    ///
-    /// TODO: Create a network thread that simply receives on these channels
-    pub peers: HashMap<u64, Sender<Message>>,
-    /// Store callback channels for client requests. When the last_applied is greater than the
+
+    /// A list of peer ids. The network layer will determine how to route messages to the correct
+    /// peer depending on what type of network connection we're using
+    pub peers: Vec<u64>,
+
+    /// TODO: Store callback channels for client requests. When the last_applied is greater than the
     /// index stored here, we can
 
     /// For manually shutting down the node in testing
@@ -82,7 +83,7 @@ impl Node {
         inbox: Receiver<Message>,
         to_inbox: Sender<Message>,
         outbox: Sender<OutboundMessage>,
-        peers: HashMap<u64, Sender<Message>>,
+        peers: Vec<u64>,
     ) -> Self {
         assert_ne!(id, 0);
         Self {
@@ -324,7 +325,8 @@ impl Node {
 
                     self.voted_for = Some(args.candidate_id);
                     reply.vote_granted = true;
-                    self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
+
+                    self.send_reply(Message::RequestVoteReply(reply), callback)
                         .await;
                     return Ok(true);
                 } else {
@@ -344,7 +346,7 @@ impl Node {
             self.voted_for.unwrap()
         );
 
-        self.send_message(args.candidate_id, Message::RequestVoteReply(reply))
+        self.send_reply(Message::RequestVoteReply(reply), callback)
             .await;
         Ok(false)
     }
@@ -617,8 +619,9 @@ impl Node {
             last_log_term: self.log[self.log.len() - 1].term,
         };
 
-        for peer in self.peers.keys() {
-            debug!("{}: sending request vote to {}", self.id, peer);
+        for peer in &self.peers {
+            debug!("{}: sending request vote to {}, term {}", self.id, peer, self.term);
+
             self.send_message(
                 *peer,
                 Message::RequestVote(request.clone(), Callback::Mpsc(self.to_inbox.clone())),
@@ -644,8 +647,9 @@ impl Node {
             term: self.term,
         };
 
-        for peer in self.peers.keys() {
-            debug!("{}: sending heartbeat to {}", self.id, peer);
+        for peer in &self.peers {
+            debug!("{}: sending heartbeat to {}, term {}", self.id, peer, self.term);
+
             self.send_message(
                 *peer,
                 Message::AppendEntries(request.clone(), Callback::Mpsc(self.to_inbox.clone())),
@@ -667,7 +671,7 @@ impl Node {
         self.leader_id = Some(self.id);
 
         // initialize next index and match index
-        for peer in self.peers.keys() {
+        for peer in &self.peers {
             self.next_index.insert(*peer, self.log.len());
             self.match_index.insert(*peer, 0);
         }
@@ -675,11 +679,14 @@ impl Node {
 
     /// send a message to a given peer
     async fn send_message(&self, peer: u64, m: Message) {
-        let sender = self
-            .peers
-            .get(&peer)
-            .expect(format!("{}: Looked for peer {}, and missed", self.id, peer).as_str());
-        let _ = sender.send(m).await;
+        let _ = self
+            .outbox
+            .send(OutboundMessage {
+                message: m,
+                from: self.id,
+                to: peer,
+            })
+            .await;
     }
 }
 #[cfg(test)]
@@ -707,7 +714,13 @@ mod tests {
         let (to_inbox, inbox) = tokio::sync::mpsc::channel(64);
         let (to_outbox, outbox) = tokio::sync::mpsc::channel(64);
         let (state_tx, mut state_rx) = tokio::sync::mpsc::channel(16);
-        let node = Node::new(1, inbox, to_inbox.clone(), to_outbox.clone(), HashMap::new());
+        let node = Node::new(
+            1,
+            inbox,
+            to_inbox.clone(),
+            to_outbox.clone(),
+            Vec::new(),
+        );
 
         tokio::spawn(async move {
             node.start(MIN_DELAY).await.unwrap();
@@ -715,7 +728,8 @@ mod tests {
 
         tokio::time::sleep(Duration::from_millis(MIN_DELAY * 3 / 2)).await;
 
-        to_inbox.send(Message::CheckState(state_tx.clone()))
+        to_inbox
+            .send(Message::CheckState(state_tx.clone()))
             .await
             .unwrap();
 
@@ -759,9 +773,18 @@ mod tests {
 
         tokio::time::sleep(Duration::from_millis(MIN_DELAY * 2)).await;
 
-        senders[0].send(Message::CheckState(state_tx_1)).await.unwrap();
-        senders[1].send(Message::CheckState(state_tx_2)).await.unwrap();
-        senders[2].send(Message::CheckState(state_tx_3)).await.unwrap();
+        senders[0]
+            .send(Message::CheckState(state_tx_1))
+            .await
+            .unwrap();
+        senders[1]
+            .send(Message::CheckState(state_tx_2))
+            .await
+            .unwrap();
+        senders[2]
+            .send(Message::CheckState(state_tx_3))
+            .await
+            .unwrap();
 
         tokio::time::sleep(Duration::from_millis(100)).await;
 
