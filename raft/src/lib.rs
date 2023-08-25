@@ -2,7 +2,6 @@
 
 mod common;
 mod error;
-mod helpers;
 pub mod net;
 mod node;
 
@@ -11,5 +10,4 @@ pub mod rpc {
 }
 pub use common::{Callback, Message, OutboundMessage};
 pub use error::{Error, Result};
-pub use helpers::init_local_nodes;
 pub use node::Node;

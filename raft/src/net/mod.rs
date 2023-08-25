@@ -7,6 +7,7 @@ mod local;
 
 pub use tcp::client::TcpRaftClient;
 pub use tcp::server::TcpRaftServer;
+pub use local::init_local_nodes;
 
 /// A `Server` handles requests and forwards them to the inner node, returning replies to the
 /// caller

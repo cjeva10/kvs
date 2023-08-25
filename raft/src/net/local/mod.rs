@@ -1,18 +1,69 @@
+use crate::{Message, Node, OutboundMessage};
+use std::collections::HashMap;
+use tokio::sync::mpsc::Sender;
+
+pub use self::client::LocalRaftClient;
+pub use self::server::LocalRaftServer;
+
 mod client;
 mod server;
 
+pub fn init_local_nodes(
+    num: usize,
+) -> Vec<(Node, LocalRaftClient, LocalRaftServer, Sender<Message>)> {
+    let mut everything = Vec::new();
+    let mut server_inboxes = HashMap::<u64, Sender<OutboundMessage>>::new();
+    let mut peers = Vec::new();
+
+    for i in 0..num {
+        // create all the channels for this node
+        let (to_inbox, inner_inbox) = tokio::sync::mpsc::channel::<Message>(64);
+        let (inner_outbox, outbox) = tokio::sync::mpsc::channel::<OutboundMessage>(64);
+        let (to_server_inbox, server_inbox) = tokio::sync::mpsc::channel::<OutboundMessage>(64);
+        let id = i + 1;
+
+        // initialize the node, server, and client
+        let node = Node::new(
+            id as u64,
+            inner_inbox,
+            to_inbox.clone(),
+            inner_outbox.clone(),
+            Vec::new(),
+        );
+        let server = LocalRaftServer::new(id as u64, server_inbox, to_inbox.clone());
+        let client = LocalRaftClient::new(id as u64, outbox, HashMap::new());
+
+        // push into the vector
+        everything.push((node, client, server, to_inbox.clone()));
+        server_inboxes.insert(id as u64, to_server_inbox);
+        peers.push(i as u64 + 1);
+    }
+
+    for i in 0..num {
+        let mut client_outbox = server_inboxes.clone();
+        let mut these_peers = peers.clone();
+        these_peers.remove(i);
+        client_outbox.remove(&(i as u64 + 1));
+        everything[i as usize].1.set_peers(client_outbox);
+        everything[i as usize].0.peers = these_peers;
+    }
+
+    everything
+}
+
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use crate::common::{Role, State};
+    use crate::net::{init_local_nodes, Client, Server};
     use crate::rpc::Log;
-    use crate::common::{State, Role};
-    use crate::helpers::init_local_nodes;
-    use crate::{Node, Message};
+    use crate::Message;
+    use log::debug;
+    use std::collections::HashMap;
+    use tokio::sync::mpsc;
     use tokio::{
         sync::mpsc::{Receiver, Sender},
         time::Duration,
     };
-    use log::debug;
 
     const MIN_DELAY: u64 = 50;
 
@@ -31,18 +82,27 @@ mod tests {
     // A single node should start an election and elect itself the leader
     #[tokio::test]
     async fn test_one_node_election() {
-        let (to_inbox, inbox) = tokio::sync::mpsc::channel(64);
-        let (to_outbox, _) = tokio::sync::mpsc::channel(64);
-        let (state_tx, mut state_rx) = tokio::sync::mpsc::channel(16);
-        let node = Node::new(1, inbox, to_inbox.clone(), to_outbox.clone(), Vec::new());
+        let everything = init_local_nodes(1);
 
-        tokio::spawn(async move {
-            node.start(MIN_DELAY).await.unwrap();
-        });
+        let (state_tx, mut state_rx) = mpsc::channel(1);
 
-        tokio::time::sleep(Duration::from_millis(MIN_DELAY * 3 / 2)).await;
+        let mut senders = Vec::new();
+        for (node, client, server, sender) in everything {
+            tokio::spawn(async move {
+                node.start(MIN_DELAY).await.unwrap();
+            });
+            tokio::spawn(async move {
+                client.start().await;
+            });
+            tokio::spawn(async move {
+                let _ = server.serve(None).await;
+            });
+            senders.push(sender);
+        }
 
-        to_inbox
+        tokio::time::sleep(Duration::from_millis(MIN_DELAY * 3)).await;
+
+        senders[0]
             .send(Message::CheckState(state_tx.clone()))
             .await
             .unwrap();
@@ -74,15 +134,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_three_node_election() {
-        let (nodes, senders) = init_local_nodes(3);
+        let everything = init_local_nodes(3);
         let (state_tx_1, mut state_rx_1) = tokio::sync::mpsc::channel(4);
         let (state_tx_2, mut state_rx_2) = tokio::sync::mpsc::channel(4);
         let (state_tx_3, mut state_rx_3) = tokio::sync::mpsc::channel(4);
 
-        for node in nodes {
+        let mut senders = Vec::new();
+        for (node, client, server, sender) in everything {
             tokio::spawn(async {
                 let _ = node.start(MIN_DELAY).await;
             });
+            tokio::spawn(async {
+                let _ = client.start().await;
+            });
+            tokio::spawn(async {
+                let _ = server.serve(None).await;
+            });
+            senders.push(sender);
         }
 
         tokio::time::sleep(Duration::from_millis(MIN_DELAY * 2)).await;
@@ -121,26 +189,36 @@ mod tests {
     }
     #[tokio::test]
     async fn test_three_nodes_kill_leader() {
-        let (nodes, tx) = init_local_nodes(3);
-        let (state_tx, mut state_rx) = make_state_channels(3);
+        env_logger::init();
 
-        for node in nodes {
+        let everything = init_local_nodes(3);
+        let (state_tx, mut state_rx) = make_state_channels(3);
+        let mut senders = Vec::new();
+
+        for (node, client, server, sender) in everything {
             tokio::spawn(async {
                 let _ = node.start(MIN_DELAY).await;
             });
+            tokio::spawn(async {
+                let _ = client.start().await;
+            });
+            tokio::spawn(async {
+                let _ = server.serve(None).await;
+            });
+            senders.push(sender);
         }
 
         tokio::time::sleep(Duration::from_millis(MIN_DELAY * 2)).await;
 
-        tx[0]
+        senders[0]
             .send(Message::CheckState(state_tx[0].clone()))
             .await
             .unwrap();
-        tx[1]
+        senders[1]
             .send(Message::CheckState(state_tx[1].clone()))
             .await
             .unwrap();
-        tx[2]
+        senders[2]
             .send(Message::CheckState(state_tx[2].clone()))
             .await
             .unwrap();
@@ -162,15 +240,15 @@ mod tests {
 
         if state_1.role == Role::Leader {
             debug!("Killed Node 1");
-            tx[0].send(Message::Kill).await.unwrap();
+            senders[0].send(Message::Kill).await.unwrap();
             killed = 1;
         } else if state_2.role == Role::Leader {
             debug!("Killed Node 2");
-            tx[1].send(Message::Kill).await.unwrap();
+            senders[1].send(Message::Kill).await.unwrap();
             killed = 2;
         } else if state_3.role == Role::Leader {
             debug!("Killed Node 3");
-            tx[2].send(Message::Kill).await.unwrap();
+            senders[2].send(Message::Kill).await.unwrap();
             killed = 3;
         } else {
             panic!("No leader elected!");
@@ -182,11 +260,11 @@ mod tests {
 
         match killed {
             1 => {
-                tx[1]
+                senders[1]
                     .send(Message::CheckState(state_tx[1].clone()))
                     .await
                     .unwrap();
-                tx[2]
+                senders[2]
                     .send(Message::CheckState(state_tx[2].clone()))
                     .await
                     .unwrap();
@@ -208,11 +286,11 @@ mod tests {
                 }
             }
             2 => {
-                tx[0]
+                senders[0]
                     .send(Message::CheckState(state_tx[0].clone()))
                     .await
                     .unwrap();
-                tx[2]
+                senders[2]
                     .send(Message::CheckState(state_tx[2].clone()))
                     .await
                     .unwrap();
@@ -234,11 +312,11 @@ mod tests {
                 }
             }
             3 => {
-                tx[0]
+                senders[0]
                     .send(Message::CheckState(state_tx[0].clone()))
                     .await
                     .unwrap();
-                tx[1]
+                senders[1]
                     .send(Message::CheckState(state_tx[1].clone()))
                     .await
                     .unwrap();

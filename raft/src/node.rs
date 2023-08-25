@@ -74,7 +74,7 @@ impl Node {
     ///
     /// let (to_inbox, inbox) = mpsc::channel(1);
     /// let (to_outbox, outbox) = mpsc::channel(1);
-    /// let node = Node::new(1, inbox, to_inbox.clone(), to_outbox.clone(), HashMap::new());
+    /// let node = Node::new(1, inbox, to_inbox.clone(), to_outbox.clone(), Vec::new());
     ///
     /// assert_eq!(node.term, 0);
     /// ```
@@ -143,7 +143,7 @@ impl Node {
     /// let (to_inbox, inbox) = mpsc::channel(32);
     /// let (tx, _) = mpsc::channel(32);
     ///
-    /// let node = Node::new(1, inbox, to_inbox.clone(), tx.clone(), HashMap::new());
+    /// let node = Node::new(1, inbox, to_inbox.clone(), tx.clone(), Vec::new());
     ///
     /// tokio::spawn(async {
     ///     node.start(100).await.unwrap();
