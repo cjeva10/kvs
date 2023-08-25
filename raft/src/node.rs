@@ -103,11 +103,10 @@ impl Node {
         todo!()
     }
 
-    /// Start the `Node`s main event loop
+    /// Start the `Node`s main event loop. Reads messages and "tick" the current state whenever the
+    /// timeout elapses, calling an election or sending heartbeats.
     ///
-    /// Since the loop is infinite it is recommended to `start` on a new thread or task
-    ///
-    /// Read messages and "tick" the current state whenever the timeout elapses
+    /// Since the loop is infinite it is recommended to spawn this function on a new task
     ///
     /// # Examples
     ///
