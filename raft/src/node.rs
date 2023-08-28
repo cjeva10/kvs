@@ -6,7 +6,7 @@ use crate::{
     },
     Error, Result,
 };
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use rand::Rng;
 use std::{cmp::min, collections::HashMap, path::PathBuf};
 use tokio::{
@@ -524,7 +524,7 @@ impl Node {
             self.apply(cmd)?;
         }
 
-        todo!()
+        Ok(())
     }
 
     #[allow(unused_variables)]
@@ -536,6 +536,7 @@ impl Node {
         if reply.term > self.term {
             self.become_follower(reply.term);
             return Ok(true);
+        // stale reply
         } else if reply.term < self.term {
             return Ok(false);
         } else {
@@ -544,6 +545,8 @@ impl Node {
                 if reply.next_index > have_index {
                     self.next_index.insert(reply.peer, reply.next_index);
                     self.match_index.insert(reply.peer, reply.next_index - 1);
+
+                    self.check_commit_index()?;
                 } else if reply.next_index < have_index {
                     warn!(
                         "{}: Stale Append Entries Reply from {}: got next_index {}, have {}",
@@ -561,6 +564,76 @@ impl Node {
             }
         }
         Ok(false)
+    }
+
+    fn check_commit_index(&mut self) -> Result<()> {
+        trace!(
+            "{}: checking commit_index; commit_index = {}",
+            self.id,
+            self.commit_index
+        );
+        let commit_index = self.commit_index;
+        let mut n = commit_index + 1;
+
+        loop {
+            let mut match_count = 0;
+            for peer in &self.peers {
+                if *self.match_index.get(peer).ok_or(Error::MissedPeer)? >= n {
+                    trace!(
+                        "{}: found good match index {} for {}",
+                        self.id,
+                        *self.match_index.get(peer).ok_or(Error::MissedPeer)?,
+                        peer
+                    );
+                    match_count += 1;
+                }
+            }
+
+            if match_count < self.peers.len() as u64 / 2 {
+                trace!(
+                    "{}: not enough large match counts: have {}, need {}",
+                    self.id,
+                    match_count,
+                    self.peers.len() / 2
+                );
+                break;
+            }
+
+            if self.log.get(n as usize).is_none() {
+                trace!(
+                    "{}: missing log at N {}; current log {:?}",
+                    self.id,
+                    n,
+                    self.log
+                );
+                break;
+            }
+
+            if self.log[n as usize].term != self.term {
+                trace!(
+                    "{}: {} = log[{}].term != self.term = {}",
+                    self.id,
+                    self.log[n as usize].term,
+                    n,
+                    self.term
+                );
+                break;
+            }
+
+            trace!(
+                "{}: setting commit_index = {}, checking n+1 {}",
+                self.id,
+                n,
+                n + 1
+            );
+
+            self.commit_index += 1;
+            n += 1;
+
+            self.check_last_applied(n - 1)?;
+        }
+
+        Ok(())
     }
 
     async fn send_heartbeat_to_peer(&self, peer: u64) -> Result<()> {
