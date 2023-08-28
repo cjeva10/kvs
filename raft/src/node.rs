@@ -174,7 +174,11 @@ impl Node {
             }
             Role::Leader => Duration::from_millis(min_delay / 2),
         };
-        debug!("{}: Setting initial timeout to {}", self.id, time_left.as_millis());
+        debug!(
+            "{}: Setting initial timeout to {}",
+            self.id,
+            time_left.as_millis()
+        );
 
         // infinite loop where we check for messages
         //
@@ -194,7 +198,7 @@ impl Node {
                         }
                     // if read returns false, then simply decrement the time elapsed
                     } else {
-                        time_left -= t.elapsed();
+                        time_left = time_left.checked_sub(t.elapsed()).unwrap_or(Duration::ZERO);
                         t = Instant::now();
                     };
                 }
@@ -206,7 +210,7 @@ impl Node {
                     self.tick().await?;
                     t = Instant::now();
                     time_left = match self.role {
-                        Role::Leader => Duration::from_millis(50),
+                        Role::Leader => Duration::from_millis(min_delay / 2),
                         Role::Follower | Role::Candidate => {
                             Duration::from_millis(min_delay + rand::thread_rng().gen_range(0..50))
                         }
@@ -216,6 +220,27 @@ impl Node {
                     debug!("Broken Inbox: inbox channel disconnected");
                     return Err(Error::BrokenInbox);
                 }
+            }
+        }
+    }
+
+    async fn handle_message(&mut self, m: Message) -> Result<bool> {
+        if self.killed {
+            return Ok(true);
+        }
+
+        match m {
+            Message::RequestVote(args, tx) => self.handle_request_vote(args, tx).await,
+            Message::RequestVoteReply(reply) => self.handle_request_vote_reply(reply),
+            Message::AppendEntries(args, tx) => self.handle_append_entries(args, tx).await,
+            Message::AppendEntriesReply(reply) => self.handle_append_entries_reply(reply).await,
+            Message::CheckState(tx) => self.handle_check_state(tx).await,
+            Message::ClientRequest(str, tx) => self.handle_client_request(str, tx).await,
+            Message::State(_) | Message::ClientRequestReply(_) => Ok(false),
+            Message::Kill => {
+                self.killed = true;
+                self.role = Role::Follower;
+                Ok(true)
             }
         }
     }
@@ -250,26 +275,6 @@ impl Node {
             });
         }
         Ok(false)
-    }
-
-    async fn handle_message(&mut self, m: Message) -> Result<bool> {
-        if self.killed {
-            return Ok(true);
-        }
-
-        match m {
-            Message::RequestVote(args, tx) => self.handle_request_vote(args, tx).await,
-            Message::RequestVoteReply(reply) => self.handle_request_vote_reply(reply),
-            Message::AppendEntries(args, tx) => self.handle_append_entries(args, tx).await,
-            Message::AppendEntriesReply(reply) => self.handle_append_entries_reply(reply).await,
-            Message::CheckState(tx) => self.handle_check_state(tx).await,
-            Message::ClientRequest(str, tx) => self.handle_client_request(str, tx).await,
-            Message::State(_) | Message::ClientRequestReply(_) => Ok(false),
-            Message::Kill => {
-                self.killed = true;
-                Ok(true)
-            }
-        }
     }
 
     async fn handle_request_vote(
@@ -330,12 +335,14 @@ impl Node {
                     return Ok(true);
                 } else {
                     debug!("{}: Rejected vote request from {}, log outdated: got term {}, have term {}", self.id, args.candidate_id, our_last_term, args.last_log_term);
+                    reply.vote_granted = false;
                 }
             } else {
                 debug!(
                     "{}: Rejected vote request from {}, log outdated: got index {}, have index {}",
                     self.id, args.candidate_id, our_last_index, args.last_log_index
                 );
+                reply.vote_granted = false;
             }
         }
         debug!(
@@ -408,7 +415,7 @@ impl Node {
             term: self.term,
             success: false,
             peer: self.id,
-            next_index: args.prev_log_index,
+            next_index: self.log.len() as u64,
         };
 
         if args.term > self.term {
@@ -528,7 +535,8 @@ impl Node {
 
     #[allow(unused_variables)]
     fn apply(&mut self, command: &str) -> Result<()> {
-        todo!()
+        warn!("{}: `apply` not yet implemented, got {}", self.id, command);
+        Ok(())
     }
 
     async fn handle_append_entries_reply(&mut self, reply: AppendEntriesReply) -> Result<bool> {
@@ -636,6 +644,7 @@ impl Node {
     }
 
     async fn send_heartbeat_to_peer(&self, peer: u64) -> Result<()> {
+        trace!("{}: Sending heartbeat to {}", self.id, peer);
         let last_log_index = self.log.len();
         let next_index = *self.next_index.get(&peer).ok_or(Error::MissedPeer)? as usize;
 
@@ -651,6 +660,7 @@ impl Node {
         if last_log_index >= next_index {
             let entries = self.log[next_index..last_log_index].to_vec();
             request.entries = entries;
+            trace!("{}: to {}, next_index {}", self.id, peer, next_index,);
             request.prev_log_index = next_index as u64 - 1;
             request.prev_log_term = self.log[next_index - 1].term;
         }
@@ -751,9 +761,10 @@ impl Node {
     }
 
     async fn send_heartbeats(&mut self) -> Result<()> {
-        debug!(
+        trace!(
             "{}: Sending heartbeats to peers: term {}",
-            self.id, self.term
+            self.id,
+            self.term
         );
 
         for peer in &self.peers {
@@ -763,6 +774,7 @@ impl Node {
     }
 
     fn become_follower(&mut self, term: u64) {
+        trace!("{}: becoming a follower, term {}", self.id, self.term);
         self.term = term;
         self.voted_for = None;
         self.votes = 0;
@@ -770,6 +782,7 @@ impl Node {
     }
 
     fn become_leader(&mut self) {
+        trace!("{}: Becoming leader", self.id);
         self.role = Role::Leader;
         self.leader_id = Some(self.id);
 
@@ -790,5 +803,414 @@ impl Node {
                 to: peer,
             })
             .await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        rpc::{AppendEntriesArgs, AppendEntriesReply, Log},
+        Message, Node,
+    };
+
+    #[tokio::test]
+    async fn test_handle_append_entries() {
+        let tests = Vec::<(AppendEntriesArgs, AppendEntriesReply, Vec<Log>)>::from([
+            (
+                AppendEntriesArgs {
+                    term: 5,
+                    leader_id: 5,
+                    prev_log_index: 2,
+                    prev_log_term: 2,
+                    entries: vec![Log {
+                        term: 5,
+                        command: "3".to_string(),
+                    }],
+                    leader_commit: 2,
+                },
+                AppendEntriesReply {
+                    success: true,
+                    term: 5,
+                    peer: 1,
+                    next_index: 4,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 1,
+                        command: "1".to_string(),
+                    },
+                    Log {
+                        term: 2,
+                        command: "2".to_string(),
+                    },
+                    Log {
+                        term: 5,
+                        command: "3".to_string(),
+                    },
+                ],
+            ),
+            (
+                AppendEntriesArgs {
+                    term: 6,
+                    leader_id: 5,
+                    prev_log_index: 2,
+                    prev_log_term: 2,
+                    entries: vec![Log {
+                        term: 6,
+                        command: "3".to_string(),
+                    }],
+                    leader_commit: 2,
+                },
+                AppendEntriesReply {
+                    success: true,
+                    term: 6,
+                    peer: 1,
+                    next_index: 4,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 1,
+                        command: "1".to_string(),
+                    },
+                    Log {
+                        term: 2,
+                        command: "2".to_string(),
+                    },
+                    Log {
+                        term: 6,
+                        command: "3".to_string(),
+                    },
+                ],
+            ),
+            (
+                AppendEntriesArgs {
+                    term: 4,
+                    leader_id: 5,
+                    prev_log_index: 2,
+                    prev_log_term: 2,
+                    entries: vec![Log {
+                        term: 4,
+                        command: "3".to_string(),
+                    }],
+                    leader_commit: 2,
+                },
+                AppendEntriesReply {
+                    success: false,
+                    term: 5,
+                    peer: 1,
+                    next_index: 3,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 1,
+                        command: "1".to_string(),
+                    },
+                    Log {
+                        term: 2,
+                        command: "2".to_string(),
+                    },
+                ],
+            ),
+            (
+                AppendEntriesArgs {
+                    term: 6,
+                    leader_id: 5,
+                    prev_log_index: 1,
+                    prev_log_term: 1,
+                    entries: vec![Log {
+                        term: 6,
+                        command: "2".to_string(),
+                    }],
+                    leader_commit: 1,
+                },
+                AppendEntriesReply {
+                    success: true,
+                    term: 6,
+                    peer: 1,
+                    next_index: 3,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 1,
+                        command: "1".to_string(),
+                    },
+                    Log {
+                        term: 6,
+                        command: "2".to_string(),
+                    },
+                ],
+            ),
+            (
+                AppendEntriesArgs {
+                    term: 6,
+                    leader_id: 5,
+                    prev_log_index: 0,
+                    prev_log_term: 0,
+                    entries: vec![Log {
+                        term: 3,
+                        command: "3".to_string(),
+                    }],
+                    leader_commit: 0,
+                },
+                AppendEntriesReply {
+                    success: true,
+                    term: 6,
+                    peer: 1,
+                    next_index: 2,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 3,
+                        command: "3".to_string(),
+                    },
+                ],
+            ),
+            (
+                AppendEntriesArgs {
+                    term: 4,
+                    leader_id: 5,
+                    prev_log_index: 3,
+                    prev_log_term: 3,
+                    entries: vec![Log {
+                        term: 4,
+                        command: "3".to_string(),
+                    }],
+                    leader_commit: 0,
+                },
+                AppendEntriesReply {
+                    success: false,
+                    term: 5,
+                    peer: 1,
+                    next_index: 3,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 1,
+                        command: "1".to_string(),
+                    },
+                    Log {
+                        term: 2,
+                        command: "2".to_string(),
+                    },
+                ],
+            ),
+            (
+                AppendEntriesArgs {
+                    term: 6,
+                    leader_id: 5,
+                    prev_log_index: 3,
+                    prev_log_term: 3,
+                    entries: vec![Log {
+                        term: 3,
+                        command: "3".to_string(),
+                    }],
+                    leader_commit: 0,
+                },
+                AppendEntriesReply {
+                    success: false,
+                    term: 6,
+                    peer: 1,
+                    next_index: 3,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 1,
+                        command: "1".to_string(),
+                    },
+                    Log {
+                        term: 2,
+                        command: "2".to_string(),
+                    },
+                ],
+            ),
+            (
+                AppendEntriesArgs {
+                    term: 6,
+                    leader_id: 5,
+                    prev_log_index: 2,
+                    prev_log_term: 5,
+                    entries: vec![Log {
+                        term: 6,
+                        command: "3".to_string(),
+                    }],
+                    leader_commit: 0,
+                },
+                AppendEntriesReply {
+                    success: false,
+                    term: 6,
+                    peer: 1,
+                    next_index: 3,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 1,
+                        command: "1".to_string(),
+                    },
+                    Log {
+                        term: 2,
+                        command: "2".to_string(),
+                    },
+                ],
+            ),
+            (
+                AppendEntriesArgs {
+                    term: 6,
+                    leader_id: 5,
+                    prev_log_index: 2,
+                    prev_log_term: 2,
+                    entries: vec![
+                        Log {
+                            term: 6,
+                            command: "3".to_string(),
+                        },
+                        Log {
+                            term: 6,
+                            command: "3".to_string(),
+                        },
+                        Log {
+                            term: 6,
+                            command: "3".to_string(),
+                        },
+                    ],
+                    leader_commit: 0,
+                },
+                AppendEntriesReply {
+                    success: true,
+                    term: 6,
+                    peer: 1,
+                    next_index: 6,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 1,
+                        command: "1".to_string(),
+                    },
+                    Log {
+                        term: 2,
+                        command: "2".to_string(),
+                    },
+                    Log {
+                        term: 6,
+                        command: "3".to_string(),
+                    },
+                    Log {
+                        term: 6,
+                        command: "3".to_string(),
+                    },
+                    Log {
+                        term: 6,
+                        command: "3".to_string(),
+                    },
+                ],
+            ),
+            (
+                AppendEntriesArgs {
+                    term: 6,
+                    leader_id: 5,
+                    prev_log_index: 1,
+                    prev_log_term: 1,
+                    entries: vec![
+                        Log {
+                            term: 6,
+                            command: "3".to_string(),
+                        },
+                        Log {
+                            term: 6,
+                            command: "3".to_string(),
+                        },
+                    ],
+                    leader_commit: 0,
+                },
+                AppendEntriesReply {
+                    success: true,
+                    term: 6,
+                    peer: 1,
+                    next_index: 4,
+                },
+                vec![
+                    Log {
+                        term: 0,
+                        command: "".to_string(),
+                    },
+                    Log {
+                        term: 1,
+                        command: "1".to_string(),
+                    },
+                    Log {
+                        term: 6,
+                        command: "3".to_string(),
+                    },
+                    Log {
+                        term: 6,
+                        command: "3".to_string(),
+                    },
+                ],
+            ),
+        ]);
+
+        for (args, expected_reply, expected_log) in tests {
+            let (to_inbox, inbox) = tokio::sync::mpsc::channel(2);
+            let (to_outbox, _) = tokio::sync::mpsc::channel(2);
+            let (callback, mut outbox) = tokio::sync::oneshot::channel();
+            let mut node = Node::new(1, inbox, to_inbox, to_outbox, Vec::new());
+
+            node.log.push(Log {
+                term: 1,
+                command: "1".to_string(),
+            });
+            node.log.push(Log {
+                term: 2,
+                command: "2".to_string(),
+            });
+            node.term = 5;
+            node.voted_for = None;
+
+            let callback = crate::Callback::OneShot(callback);
+
+            node.handle_append_entries(args, callback).await.unwrap();
+
+            let Message::AppendEntriesReply(reply) = outbox.try_recv().unwrap() else {
+                panic!();
+            };
+
+            assert_eq!(reply, expected_reply);
+            assert_eq!(node.log, expected_log);
+        }
     }
 }

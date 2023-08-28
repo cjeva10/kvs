@@ -2,7 +2,7 @@ use crate::rpc::{
     AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, Log, RequestVoteArgs,
     RequestVoteReply,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 use tokio::sync::{mpsc::Sender, oneshot::Sender as OneShotSender};
 
 // for checking what the current state of the node is
@@ -41,6 +41,12 @@ pub enum Message {
     ClientRequest(String, Callback<ClientRequestReply>),
     ClientRequestReply(ClientRequestReply),
     Kill,
+}
+
+impl Display for Log {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[term: {}, command: {}]", self.term, self.command)
+    }
 }
 
 #[derive(Debug)]
