@@ -174,7 +174,7 @@ impl Node {
             }
             Role::Leader => Duration::from_millis(min_delay / 2),
         };
-        debug!("Setting initial timeout to {}", time_left.as_millis());
+        debug!("{}: Setting initial timeout to {}", self.id, time_left.as_millis());
 
         // infinite loop where we check for messages
         //
@@ -183,7 +183,6 @@ impl Node {
         loop {
             match timeout(time_left, self.inbox.recv()).await {
                 Ok(Some(m)) => {
-                    debug!("Got a message {:?}", m);
                     // if a read returns true, that means we should restart our tick timer
                     if self.handle_message(m).await? {
                         t = Instant::now();
