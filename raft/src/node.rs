@@ -307,6 +307,8 @@ impl Node {
 
             reply.vote_granted = false;
 
+            self.send_reply(Message::RequestVoteReply(reply), callback)
+                .await;
             return Ok(false);
         }
 
@@ -809,7 +811,7 @@ impl Node {
 #[cfg(test)]
 mod tests {
     use crate::{
-        rpc::{AppendEntriesArgs, AppendEntriesReply, Log},
+        rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply},
         Message, Node,
     };
 
@@ -1211,6 +1213,118 @@ mod tests {
 
             assert_eq!(reply, expected_reply);
             assert_eq!(node.log, expected_log);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_vote() {
+        let tests = Vec::<(RequestVoteArgs, RequestVoteReply)>::from([
+            ( // simple yes
+                RequestVoteArgs {
+                    term: 5,
+                    candidate_id: 5,
+                    last_log_index: 2,
+                    last_log_term: 2,
+                },
+                RequestVoteReply {
+                    vote_granted: true,
+                    term: 5,
+                    peer: 1,
+                },
+            ),
+            ( // higher last log term
+                RequestVoteArgs {
+                    term: 5,
+                    candidate_id: 5,
+                    last_log_index: 2,
+                    last_log_term: 3,
+                },
+                RequestVoteReply {
+                    vote_granted: true,
+                    term: 5,
+                    peer: 1,
+                },
+            ),
+            ( // higher last log index
+                RequestVoteArgs {
+                    term: 5,
+                    candidate_id: 5,
+                    last_log_index: 3,
+                    last_log_term: 2,
+                },
+                RequestVoteReply {
+                    vote_granted: true,
+                    term: 5,
+                    peer: 1,
+                },
+            ),
+            ( // lower term
+                RequestVoteArgs {
+                    term: 4,
+                    candidate_id: 5,
+                    last_log_index: 2,
+                    last_log_term: 2,
+                },
+                RequestVoteReply {
+                    vote_granted: false,
+                    term: 5,
+                    peer: 1,
+                },
+            ),
+            ( // lower last log term 
+                RequestVoteArgs {
+                    term: 5,
+                    candidate_id: 5,
+                    last_log_index: 2,
+                    last_log_term: 1,
+                },
+                RequestVoteReply {
+                    vote_granted: false,
+                    term: 5,
+                    peer: 1,
+                },
+            ),
+            ( // lower last log index 
+                RequestVoteArgs {
+                    term: 5,
+                    candidate_id: 5,
+                    last_log_index: 1,
+                    last_log_term: 1,
+                },
+                RequestVoteReply {
+                    vote_granted: false,
+                    term: 5,
+                    peer: 1,
+                },
+            ),
+        ]);
+
+        for (args, expected_reply) in tests {
+            let (to_inbox, inbox) = tokio::sync::mpsc::channel(2);
+            let (to_outbox, _) = tokio::sync::mpsc::channel(2);
+            let (callback, mut outbox) = tokio::sync::oneshot::channel();
+            let mut node = Node::new(1, inbox, to_inbox, to_outbox, Vec::new());
+
+            node.term = 5;
+            node.voted_for = None;
+            node.log.push(Log {
+                term: 1,
+                command: "1".to_string(),
+            });
+            node.log.push(Log {
+                term: 2,
+                command: "2".to_string(),
+            });
+
+            let callback = crate::Callback::OneShot(callback);
+
+            node.handle_request_vote(args, callback).await.unwrap();
+
+            let Message::RequestVoteReply(reply) = outbox.try_recv().unwrap() else {
+                panic!();
+            };
+
+            assert_eq!(reply, expected_reply);
         }
     }
 }
