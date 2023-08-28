@@ -37,9 +37,9 @@ pub struct Node {
     pub last_applied: u64,
 
     /// for each server, index of the next log entry to send to that server
-    pub next_index: HashMap<u64, usize>,
+    pub next_index: HashMap<u64, u64>,
     /// for each server, index of highest log entry known to be replicated on that server
-    pub match_index: HashMap<u64, usize>,
+    pub match_index: HashMap<u64, u64>,
 
     /// Receive all messages on a single channel
     pub inbox: Receiver<Message>,
@@ -532,7 +532,6 @@ impl Node {
         todo!()
     }
 
-    // a bit tricky with the single thread loop.
     fn handle_append_entries_reply(&mut self, reply: AppendEntriesReply) -> Result<bool> {
         if reply.term > self.term {
             self.become_follower(reply.term);
@@ -541,11 +540,18 @@ impl Node {
             return Ok(false);
         } else {
             if reply.success {
-                // WARNING: This might create a race condition if there is a log appended
-                // before this reply gets to us, therefore causing us to think this peer is
-                // more up to date than he is.
-                self.next_index.insert(reply.peer, self.log.len());
-                self.match_index.insert(reply.peer, self.log.len() - 1);
+                if reply.next_index >= *self.next_index.get(&reply.peer).ok_or(Error::MissedPeer)? {
+                    self.next_index.insert(reply.peer, reply.next_index);
+                    self.match_index.insert(reply.peer, reply.next_index - 1);
+                } else {
+                    warn!(
+                        "{}: Stale Append Entries Reply from {}: got next_index {}, have {}",
+                        self.id,
+                        reply.peer,
+                        reply.next_index,
+                        self.next_index.get(&reply.peer).unwrap()
+                    );
+                }
             } else {
                 let next_index = self.next_index.get(&reply.peer).unwrap();
                 self.next_index.insert(reply.peer, next_index - 1);
@@ -678,7 +684,7 @@ impl Node {
 
         // initialize next index and match index
         for peer in &self.peers {
-            self.next_index.insert(*peer, self.log.len());
+            self.next_index.insert(*peer, self.log.len() as u64);
             self.match_index.insert(*peer, 0);
         }
     }

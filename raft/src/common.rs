@@ -16,8 +16,8 @@ pub struct State {
     pub log: Vec<Log>,
     pub commit_index: u64,
     pub last_applied: u64,
-    pub next_index: HashMap<u64, usize>,
-    pub match_index: HashMap<u64, usize>,
+    pub next_index: HashMap<u64, u64>,
+    pub match_index: HashMap<u64, u64>,
     pub killed: bool,
     pub leader_id: Option<u64>,
 }

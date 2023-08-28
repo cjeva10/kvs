@@ -16,5 +16,7 @@ pub enum Error {
     TransportError,
     #[error("Can't use address when running on local in-memory server")]
     DidntExpectSocketAddr,
+    #[error("Peer look up failed")]
+    MissedPeer,
 }
 pub type Result<T> = std::result::Result<T, Error>;
