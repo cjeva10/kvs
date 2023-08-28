@@ -262,7 +262,7 @@ impl Node {
             Message::RequestVote(args, tx) => self.handle_request_vote(args, tx).await,
             Message::RequestVoteReply(reply) => self.handle_request_vote_reply(reply),
             Message::AppendEntries(args, tx) => self.handle_append_entries(args, tx).await,
-            Message::AppendEntriesReply(reply) => self.handle_append_entries_reply(reply),
+            Message::AppendEntriesReply(reply) => self.handle_append_entries_reply(reply).await,
             Message::CheckState(tx) => self.handle_check_state(tx).await,
             Message::ClientRequest(str, tx) => self.handle_client_request(str, tx).await,
             Message::State(_) | Message::ClientRequestReply(_) => Ok(false),
@@ -501,7 +501,7 @@ impl Node {
         reply.success = true;
         // make sure to tell the leader what our next index is in case this message beomces stale
         // so that the leader can ensure that next index increases monotoonically
-        reply.next_index = self.log.len() as u64 + 1;
+        reply.next_index = self.log.len() as u64;
         debug!(
             "{}: AppendEntries from {} successful: Current log {:?}, commit_index {}",
             self.id, args.leader_id, self.log, self.commit_index
@@ -532,7 +532,7 @@ impl Node {
         todo!()
     }
 
-    fn handle_append_entries_reply(&mut self, reply: AppendEntriesReply) -> Result<bool> {
+    async fn handle_append_entries_reply(&mut self, reply: AppendEntriesReply) -> Result<bool> {
         if reply.term > self.term {
             self.become_follower(reply.term);
             return Ok(true);
@@ -540,10 +540,11 @@ impl Node {
             return Ok(false);
         } else {
             if reply.success {
-                if reply.next_index >= *self.next_index.get(&reply.peer).ok_or(Error::MissedPeer)? {
+                let have_index = *self.next_index.get(&reply.peer).ok_or(Error::MissedPeer)?;
+                if reply.next_index > have_index {
                     self.next_index.insert(reply.peer, reply.next_index);
                     self.match_index.insert(reply.peer, reply.next_index - 1);
-                } else {
+                } else if reply.next_index < have_index {
                     warn!(
                         "{}: Stale Append Entries Reply from {}: got next_index {}, have {}",
                         self.id,
@@ -553,11 +554,47 @@ impl Node {
                     );
                 }
             } else {
+                // decrement next index
                 let next_index = self.next_index.get(&reply.peer).unwrap();
                 self.next_index.insert(reply.peer, next_index - 1);
+                self.send_heartbeat_to_peer(reply.peer).await?;
             }
         }
         Ok(false)
+    }
+
+    async fn send_heartbeat_to_peer(&self, peer: u64) -> Result<()> {
+        let last_log_index = self.log.len();
+        let next_index = *self.next_index.get(&peer).ok_or(Error::MissedPeer)? as usize;
+
+        let mut request = AppendEntriesArgs {
+            entries: Vec::new(),
+            leader_commit: self.commit_index as u64,
+            leader_id: self.id,
+            prev_log_index: 0,
+            prev_log_term: 0,
+            term: self.term,
+        };
+
+        if last_log_index >= next_index {
+            let entries = self.log[next_index..last_log_index].to_vec();
+            request.entries = entries;
+            request.prev_log_index = next_index as u64 - 1;
+            request.prev_log_term = self.log[next_index - 1].term;
+        }
+
+        debug!(
+            "{}: sending heartbeat {:?} to {}, term {}",
+            self.id, request, peer, self.term
+        );
+
+        self.send_message(
+            peer,
+            Message::AppendEntries(request.clone(), Callback::Mpsc(self.to_inbox.clone())),
+        )
+        .await;
+
+        Ok(())
     }
 
     async fn handle_check_state(&self, tx: Sender<Message>) -> Result<bool> {
@@ -647,26 +684,8 @@ impl Node {
             self.id, self.term
         );
 
-        let request = AppendEntriesArgs {
-            entries: Vec::new(),
-            leader_commit: self.commit_index as u64,
-            leader_id: self.id,
-            prev_log_index: 0,
-            prev_log_term: 0,
-            term: self.term,
-        };
-
         for peer in &self.peers {
-            debug!(
-                "{}: sending heartbeat to {}, term {}",
-                self.id, peer, self.term
-            );
-
-            self.send_message(
-                *peer,
-                Message::AppendEntries(request.clone(), Callback::Mpsc(self.to_inbox.clone())),
-            )
-            .await;
+            self.send_heartbeat_to_peer(*peer).await?;
         }
         Ok(())
     }
