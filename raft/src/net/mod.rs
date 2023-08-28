@@ -1,13 +1,13 @@
 use crate::Result;
-use std::net::SocketAddr;
 use async_trait::async_trait;
+use std::net::SocketAddr;
 
-mod tcp;
 mod local;
+mod tcp;
 
+pub use local::init_local_nodes;
 pub use tcp::client::TcpRaftClient;
 pub use tcp::server::TcpRaftServer;
-pub use local::init_local_nodes;
 
 /// A `Server` handles requests and forwards them to the inner node, returning replies to the
 /// caller

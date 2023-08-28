@@ -18,13 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (to_inbox, inbox) = tokio::sync::mpsc::channel(64);
     let (to_outbox, outbox) = tokio::sync::mpsc::channel(64);
 
-    let node = Node::new(
-        id,
-        inbox,
-        to_inbox.clone(),
-        to_outbox.clone(),
-        Vec::new(),
-    );
+    let node = Node::new(id, inbox, to_inbox.clone(), to_outbox.clone(), Vec::new());
 
     // start the inner node
     let inner_handle =
