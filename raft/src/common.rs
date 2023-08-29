@@ -1,7 +1,8 @@
 use crate::rpc::{
-    AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, Log, RequestVoteArgs,
+    AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, RequestVoteArgs,
     RequestVoteReply,
 };
+use crate::node::Log;
 use std::{collections::HashMap, fmt::Display};
 use tokio::sync::{mpsc::Sender, oneshot::Sender as OneShotSender};
 
@@ -13,7 +14,7 @@ pub struct State {
     pub votes: u64,
     pub term: u64,
     pub voted_for: Option<u64>,
-    pub log: Vec<Log>,
+    pub log: Vec<Log<String>>,
     pub commit_index: u64,
     pub last_applied: u64,
     pub next_index: HashMap<u64, u64>,
@@ -43,7 +44,7 @@ pub enum Message {
     Kill,
 }
 
-impl Display for Log {
+impl Display for Log<String> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[term: {}, command: {}]", self.term, self.command)
     }

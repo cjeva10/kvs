@@ -1,22 +1,36 @@
 use crate::{
     common::{Callback, Message, OutboundMessage, Role, State},
     rpc::{
-        AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, Log, RequestVoteArgs,
+        self, AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, RequestVoteArgs,
         RequestVoteReply,
     },
+    state_machine::StateMachine,
     Error, Result,
 };
 use log::{debug, trace, warn};
 use rand::Rng;
-use std::{cmp::min, collections::HashMap, path::PathBuf};
+use std::{cmp::min, collections::HashMap, fmt::Debug, fmt::Display, path::PathBuf};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{timeout, Duration, Instant},
 };
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct Log<C>
+where
+    C: TryFrom<String> + Clone + Default + Debug + Display,
+{
+    pub command: C,
+    pub term: u64,
+}
+
 /// An instance of a Raft Node
 #[derive(Debug)]
-pub struct Node {
+pub struct Node<SM, C>
+where
+    C: TryFrom<String> + Clone + Display + Debug + Default,
+    SM: StateMachine<C>,
+{
     /// This `Node`s id
     pub id: u64,
     /// Either `Follower`, `Candidate` or `Leader`
@@ -29,7 +43,7 @@ pub struct Node {
     /// If we've voted in this term and who for
     pub voted_for: Option<u64>,
     /// The current log
-    pub log: Vec<Log>,
+    pub log: Vec<Log<C>>,
 
     /// index of the highest log entry known to be committed
     pub commit_index: u64,
@@ -59,22 +73,29 @@ pub struct Node {
     pub killed: bool,
     /// The current leader
     pub leader_id: Option<u64>,
+
+    /// The state machine for this node
+    pub machine: SM,
 }
 
-impl Node {
+impl<SM, C> Node<SM, C>
+where
+    C: TryFrom<String> + Clone + Display + Default + Debug,
+    SM: StateMachine<C>,
+{
     /// Generate a new `Node` with a blank slate (i.e. a "Follower", with empty log)
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use raft::Node;
+    /// use raft::{Node, state_machine::DummyStateMachine};
     /// use std::collections::HashMap;
     /// use tokio::sync::mpsc;
     ///
     ///
     /// let (to_inbox, inbox) = mpsc::channel(1);
     /// let (to_outbox, outbox) = mpsc::channel(1);
-    /// let node = Node::new(1, inbox, to_inbox.clone(), to_outbox.clone(), Vec::new());
+    /// let node = Node::new(1, inbox, to_inbox.clone(), to_outbox.clone(), Vec::new(), DummyStateMachine {});
     ///
     /// assert_eq!(node.term, 0);
     /// ```
@@ -84,6 +105,7 @@ impl Node {
         to_inbox: Sender<Message>,
         outbox: Sender<OutboundMessage>,
         peers: Vec<u64>,
+        machine: SM,
     ) -> Self {
         assert_ne!(id, 0);
         Self {
@@ -94,7 +116,7 @@ impl Node {
             voted_for: None,
             log: vec![Log {
                 term: 0,
-                command: "".to_string(),
+                command: C::default(),
             }],
             commit_index: 0,
             last_applied: 0,
@@ -106,6 +128,7 @@ impl Node {
             peers,
             killed: false,
             leader_id: None,
+            machine,
         }
     }
 
@@ -131,7 +154,7 @@ impl Node {
     /// ```rust
     /// # tokio_test::block_on(async {
     ///
-    /// use raft::{Message, Node};
+    /// use raft::{Message, Node, state_machine::DummyStateMachine};
     /// use std::{
     ///     collections::HashMap,
     /// };
@@ -143,7 +166,7 @@ impl Node {
     /// let (to_inbox, inbox) = mpsc::channel(32);
     /// let (tx, _) = mpsc::channel(32);
     ///
-    /// let node = Node::new(1, inbox, to_inbox.clone(), tx.clone(), Vec::new());
+    /// let node = Node::new(1, inbox, to_inbox.clone(), tx.clone(), Vec::new(), DummyStateMachine {});
     ///
     /// tokio::spawn(async {
     ///     node.start(100).await.unwrap();
@@ -271,7 +294,7 @@ impl Node {
         } else {
             self.log.push(Log {
                 term: self.term,
-                command: s,
+                command: s.try_into().map_err(|_| Error::ParseError)?,
             });
         }
         Ok(false)
@@ -471,10 +494,18 @@ impl Node {
             return Ok(false);
         }
 
+        let mut args_entries = Vec::new();
+        for entry in args.entries {
+            args_entries.push(Log {
+                command: entry.command.try_into().map_err(|_| Error::ParseError)?,
+                term: entry.term,
+            });
+        }
+
         // if an existing entry conflicts with a new one (same index but different terms)
         // delete the existing entry and all that follow it
         let mut idx = args.prev_log_index as usize + 1;
-        for entry in &args.entries {
+        for entry in &args_entries {
             if idx > self.log.len() - 1 {
                 break;
             }
@@ -487,9 +518,9 @@ impl Node {
 
         // append any new entries not in the log
         let idx = args.prev_log_index as usize + 1;
-        for i in 0..args.entries.len() {
+        for i in 0..args_entries.len() {
             if idx + 1 > self.log.len() - 1 {
-                self.log.append(&mut args.entries[i..].to_vec());
+                self.log.append(&mut args_entries[i..].to_vec());
                 break;
             }
         }
@@ -527,7 +558,7 @@ impl Node {
                 "{}: applying {} to state machine",
                 self.id, self.log[i as usize].command
             );
-            let cmd = &self.log[i as usize].command.clone();
+            let cmd = &self.log[i as usize].command;
 
             self.apply(cmd)?;
         }
@@ -536,8 +567,8 @@ impl Node {
     }
 
     #[allow(unused_variables)]
-    fn apply(&mut self, command: &str) -> Result<()> {
-        warn!("{}: `apply` not yet implemented, got {}", self.id, command);
+    fn apply(&self, command: &C) -> Result<()> {
+        self.machine.apply(command)?;
         Ok(())
     }
 
@@ -661,7 +692,12 @@ impl Node {
 
         if last_log_index >= next_index {
             let entries = self.log[next_index..last_log_index].to_vec();
-            request.entries = entries;
+            for entry in entries {
+                request.entries.push(rpc::Log {
+                    command: entry.command.to_string(),
+                    term: entry.term,
+                });
+            }
             trace!("{}: to {}, next_index {}", self.id, peer, next_index,);
             request.prev_log_index = next_index as u64 - 1;
             request.prev_log_term = self.log[next_index - 1].term;
@@ -687,13 +723,20 @@ impl Node {
     }
 
     fn state(&self) -> State {
+        let mut log = Vec::new();
+        for entry in &self.log {
+            log.push(Log {
+                term: entry.term,
+                command: entry.command.to_string(),
+            });
+        }
         State {
             id: self.id,
             role: self.role.clone(),
             votes: self.votes,
             term: self.term,
             voted_for: self.voted_for,
-            log: self.log.clone(),
+            log,
             commit_index: self.commit_index,
             last_applied: self.last_applied,
             next_index: self.next_index.clone(),
@@ -811,20 +854,24 @@ impl Node {
 #[cfg(test)]
 mod tests {
     use crate::{
-        rpc::{AppendEntriesArgs, AppendEntriesReply, Log, RequestVoteArgs, RequestVoteReply},
+        node::Log,
+        rpc::{
+            AppendEntriesArgs, AppendEntriesReply, Log as RpcLog, RequestVoteArgs, RequestVoteReply,
+        },
+        state_machine::DummyStateMachine,
         Message, Node,
     };
 
     #[tokio::test]
     async fn test_handle_append_entries() {
-        let tests = Vec::<(AppendEntriesArgs, AppendEntriesReply, Vec<Log>)>::from([
+        let tests = Vec::<(AppendEntriesArgs, AppendEntriesReply, Vec<Log<String>>)>::from([
             (
                 AppendEntriesArgs {
                     term: 5,
                     leader_id: 5,
                     prev_log_index: 2,
                     prev_log_term: 2,
-                    entries: vec![Log {
+                    entries: vec![RpcLog {
                         term: 5,
                         command: "3".to_string(),
                     }],
@@ -861,7 +908,7 @@ mod tests {
                     leader_id: 5,
                     prev_log_index: 2,
                     prev_log_term: 2,
-                    entries: vec![Log {
+                    entries: vec![RpcLog {
                         term: 6,
                         command: "3".to_string(),
                     }],
@@ -898,7 +945,7 @@ mod tests {
                     leader_id: 5,
                     prev_log_index: 2,
                     prev_log_term: 2,
-                    entries: vec![Log {
+                    entries: vec![RpcLog {
                         term: 4,
                         command: "3".to_string(),
                     }],
@@ -931,7 +978,7 @@ mod tests {
                     leader_id: 5,
                     prev_log_index: 1,
                     prev_log_term: 1,
-                    entries: vec![Log {
+                    entries: vec![RpcLog {
                         term: 6,
                         command: "2".to_string(),
                     }],
@@ -964,7 +1011,7 @@ mod tests {
                     leader_id: 5,
                     prev_log_index: 0,
                     prev_log_term: 0,
-                    entries: vec![Log {
+                    entries: vec![RpcLog {
                         term: 3,
                         command: "3".to_string(),
                     }],
@@ -993,7 +1040,7 @@ mod tests {
                     leader_id: 5,
                     prev_log_index: 3,
                     prev_log_term: 3,
-                    entries: vec![Log {
+                    entries: vec![RpcLog {
                         term: 4,
                         command: "3".to_string(),
                     }],
@@ -1026,7 +1073,7 @@ mod tests {
                     leader_id: 5,
                     prev_log_index: 3,
                     prev_log_term: 3,
-                    entries: vec![Log {
+                    entries: vec![RpcLog {
                         term: 3,
                         command: "3".to_string(),
                     }],
@@ -1059,7 +1106,7 @@ mod tests {
                     leader_id: 5,
                     prev_log_index: 2,
                     prev_log_term: 5,
-                    entries: vec![Log {
+                    entries: vec![RpcLog {
                         term: 6,
                         command: "3".to_string(),
                     }],
@@ -1093,15 +1140,15 @@ mod tests {
                     prev_log_index: 2,
                     prev_log_term: 2,
                     entries: vec![
-                        Log {
+                        RpcLog {
                             term: 6,
                             command: "3".to_string(),
                         },
-                        Log {
+                        RpcLog {
                             term: 6,
                             command: "3".to_string(),
                         },
-                        Log {
+                        RpcLog {
                             term: 6,
                             command: "3".to_string(),
                         },
@@ -1148,11 +1195,11 @@ mod tests {
                     prev_log_index: 1,
                     prev_log_term: 1,
                     entries: vec![
-                        Log {
+                        RpcLog {
                             term: 6,
                             command: "3".to_string(),
                         },
-                        Log {
+                        RpcLog {
                             term: 6,
                             command: "3".to_string(),
                         },
@@ -1190,7 +1237,8 @@ mod tests {
             let (to_inbox, inbox) = tokio::sync::mpsc::channel(2);
             let (to_outbox, _) = tokio::sync::mpsc::channel(2);
             let (callback, mut outbox) = tokio::sync::oneshot::channel();
-            let mut node = Node::new(1, inbox, to_inbox, to_outbox, Vec::new());
+            let dummy = DummyStateMachine {};
+            let mut node = Node::new(1, inbox, to_inbox, to_outbox, Vec::new(), dummy);
 
             node.log.push(Log {
                 term: 1,
@@ -1219,7 +1267,8 @@ mod tests {
     #[tokio::test]
     async fn test_handle_request_vote() {
         let tests = Vec::<(RequestVoteArgs, RequestVoteReply)>::from([
-            ( // simple yes
+            (
+                // simple yes
                 RequestVoteArgs {
                     term: 5,
                     candidate_id: 5,
@@ -1232,7 +1281,8 @@ mod tests {
                     peer: 1,
                 },
             ),
-            ( // higher last log term
+            (
+                // higher last log term
                 RequestVoteArgs {
                     term: 5,
                     candidate_id: 5,
@@ -1245,7 +1295,8 @@ mod tests {
                     peer: 1,
                 },
             ),
-            ( // higher last log index
+            (
+                // higher last log index
                 RequestVoteArgs {
                     term: 5,
                     candidate_id: 5,
@@ -1258,7 +1309,8 @@ mod tests {
                     peer: 1,
                 },
             ),
-            ( // lower term
+            (
+                // lower term
                 RequestVoteArgs {
                     term: 4,
                     candidate_id: 5,
@@ -1271,7 +1323,8 @@ mod tests {
                     peer: 1,
                 },
             ),
-            ( // lower last log term 
+            (
+                // lower last log term
                 RequestVoteArgs {
                     term: 5,
                     candidate_id: 5,
@@ -1284,7 +1337,8 @@ mod tests {
                     peer: 1,
                 },
             ),
-            ( // lower last log index 
+            (
+                // lower last log index
                 RequestVoteArgs {
                     term: 5,
                     candidate_id: 5,
@@ -1303,7 +1357,8 @@ mod tests {
             let (to_inbox, inbox) = tokio::sync::mpsc::channel(2);
             let (to_outbox, _) = tokio::sync::mpsc::channel(2);
             let (callback, mut outbox) = tokio::sync::oneshot::channel();
-            let mut node = Node::new(1, inbox, to_inbox, to_outbox, Vec::new());
+            let dummy = DummyStateMachine {};
+            let mut node = Node::new(1, inbox, to_inbox, to_outbox, Vec::new(), dummy);
 
             node.term = 5;
             node.voted_for = None;

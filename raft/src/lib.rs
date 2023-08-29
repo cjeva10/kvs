@@ -4,6 +4,7 @@ mod common;
 mod error;
 pub mod net;
 mod node;
+pub mod state_machine;
 
 pub mod rpc {
     tonic::include_proto!("raft");

@@ -1,4 +1,4 @@
-use crate::{Message, Node, OutboundMessage};
+use crate::{state_machine::DummyStateMachine, Message, Node, OutboundMessage};
 use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
 
@@ -9,7 +9,12 @@ mod server;
 
 pub fn init_local_nodes(
     num: usize,
-) -> Vec<(Node, LocalRaftClient, LocalRaftServer, Sender<Message>)> {
+) -> Vec<(
+    Node<DummyStateMachine, String>,
+    LocalRaftClient,
+    LocalRaftServer,
+    Sender<Message>,
+)> {
     let mut everything = Vec::new();
     let mut server_inboxes = HashMap::<u64, Sender<OutboundMessage>>::new();
     let mut peers = Vec::new();
@@ -19,6 +24,7 @@ pub fn init_local_nodes(
         let (to_inbox, inner_inbox) = tokio::sync::mpsc::channel::<Message>(64);
         let (inner_outbox, outbox) = tokio::sync::mpsc::channel::<OutboundMessage>(64);
         let (to_server_inbox, server_inbox) = tokio::sync::mpsc::channel::<OutboundMessage>(64);
+        let dummy = DummyStateMachine {};
         let id = i + 1;
 
         // initialize the node, server, and client
@@ -28,6 +34,7 @@ pub fn init_local_nodes(
             to_inbox.clone(),
             inner_outbox.clone(),
             Vec::new(),
+            dummy,
         );
         let server = LocalRaftServer::new(id as u64, server_inbox, to_inbox.clone());
         let client = LocalRaftClient::new(id as u64, outbox, HashMap::new());
@@ -55,7 +62,7 @@ mod tests {
     use crate::{
         common::{Role, State},
         net::{init_local_nodes, Client, Server},
-        rpc::Log,
+        node::Log,
         Message,
     };
     use log::debug;

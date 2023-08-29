@@ -1,5 +1,6 @@
 use log::info;
 use raft::net::{Client, Server, TcpRaftClient, TcpRaftServer};
+use raft::state_machine::DummyStateMachine;
 use raft::Node;
 use std::collections::HashMap;
 use tokio::try_join;
@@ -18,7 +19,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (to_inbox, inbox) = tokio::sync::mpsc::channel(64);
     let (to_outbox, outbox) = tokio::sync::mpsc::channel(64);
 
-    let node = Node::new(id, inbox, to_inbox.clone(), to_outbox.clone(), Vec::new());
+    let dummy = DummyStateMachine {};
+
+    let node = Node::new(
+        id,
+        inbox,
+        to_inbox.clone(),
+        to_outbox.clone(),
+        Vec::new(),
+        dummy,
+    );
 
     // start the inner node
     let inner_handle =

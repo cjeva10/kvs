@@ -18,5 +18,7 @@ pub enum Error {
     DidntExpectSocketAddr,
     #[error("Peer look up failed")]
     MissedPeer,
+    #[error("Failed to parse string into command")]
+    ParseError,
 }
 pub type Result<T> = std::result::Result<T, Error>;
