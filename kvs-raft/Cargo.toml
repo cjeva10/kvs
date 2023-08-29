@@ -6,3 +6,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+clap = { version = "4.4.1", features = ["derive"] }
+env_logger = "0.10.0"
+eyre = "0.6.8"
+kvs = { version = "0.1.0", path = "../kvs" }
+log = "0.4.20"
+raft = { version = "0.1.0", path = "../raft" }
+resp = { version = "0.1.0", path = "../resp" }
+tokio = { version = "1.32.0", features = ["full"] }
+
+[[bin]]
+name = "node"
+path = "src/node.rs"
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
