@@ -7,7 +7,7 @@ use crate::{
     state_machine::StateMachine,
     Error, Result,
 };
-use log::{debug, trace, warn};
+use log::{debug, error, trace, warn};
 use rand::Rng;
 use std::{cmp::min, collections::HashMap, fmt::Debug, fmt::Display, path::PathBuf};
 use tokio::{
@@ -76,6 +76,14 @@ where
 
     /// The state machine for this node
     pub machine: SM,
+
+    /// Client callbacks for replying to client requests
+    ///
+    /// When we apply new logs to our machine, if there is a pending client request we can send the
+    /// reply across these channels
+    ///
+    /// Note that sometimes there is no callback (i.e. when logs are applied when we are a follower)
+    pub callbacks: Vec<Option<Callback<ClientRequestReply>>>,
 }
 
 impl<SM, C> Node<SM, C>
@@ -129,6 +137,7 @@ where
             killed: false,
             leader_id: None,
             machine,
+            callbacks: Vec::new(),
         }
     }
 
@@ -211,25 +220,36 @@ where
             match timeout(time_left, self.inbox.recv()).await {
                 Ok(Some(m)) => {
                     // if a read returns true, that means we should restart our tick timer
-                    if self.handle_message(m).await? {
-                        t = Instant::now();
-                        time_left = match self.role {
-                            Role::Follower | Role::Candidate => Duration::from_millis(
-                                min_delay + rand::thread_rng().gen_range(0..50),
-                            ),
-                            Role::Leader => Duration::from_millis(min_delay / 2),
+                    match self.handle_message(m).await {
+                        Ok(true) => {
+                            t = Instant::now();
+                            time_left = match self.role {
+                                Role::Follower | Role::Candidate => Duration::from_millis(
+                                    min_delay + rand::thread_rng().gen_range(0..50),
+                                ),
+                                Role::Leader => Duration::from_millis(min_delay / 2),
+                            }
                         }
-                    // if read returns false, then simply decrement the time elapsed
-                    } else {
-                        time_left = time_left.checked_sub(t.elapsed()).unwrap_or(Duration::ZERO);
-                        t = Instant::now();
-                    };
+                        // if read returns false, then simply decrement the time elapsed
+                        Ok(false) => {
+                            time_left =
+                                time_left.checked_sub(t.elapsed()).unwrap_or(Duration::ZERO);
+                            t = Instant::now();
+                        }
+                        Err(e) => {
+                            time_left =
+                                time_left.checked_sub(t.elapsed()).unwrap_or(Duration::ZERO);
+                            t = Instant::now();
+                            error!("{}", e);
+                        }
+                    }
                 }
                 Err(_) => {
                     debug!(
                         "{}: Timer timeout: term {}, role {:?}",
                         self.id, self.term, self.role
                     );
+                    // TODO handle error case
                     self.tick().await?;
                     t = Instant::now();
                     time_left = match self.role {
@@ -296,6 +316,7 @@ where
                 term: self.term,
                 command: s.try_into().map_err(|_| Error::ParseError)?,
             });
+            self.callbacks.push(Some(callback));
         }
         Ok(false)
     }
@@ -510,7 +531,10 @@ where
                 break;
             }
             if entry.term != self.log[idx].term {
-                self.log = self.log[..idx].to_vec();
+                self.log.drain(idx..);
+                self.callbacks.drain(idx..);
+
+                assert_eq!(self.callbacks.len(), self.log.len());
                 break;
             }
             idx += 1;
@@ -521,6 +545,12 @@ where
         for i in 0..args_entries.len() {
             if idx + 1 > self.log.len() - 1 {
                 self.log.append(&mut args_entries[i..].to_vec());
+
+                for _ in i..args_entries.len() {
+                    self.callbacks.push(None);
+                }
+
+                assert_eq!(self.callbacks.len(), self.log.len());
                 break;
             }
         }
@@ -533,11 +563,12 @@ where
 
             self.commit_index = min(idx_last_new_entry as u64, args.leader_commit);
 
-            self.check_last_applied(old_commit_index)?;
+            self.check_last_applied(old_commit_index).await?;
         }
 
         self.voted_for = Some(args.leader_id);
         reply.success = true;
+
         // make sure to tell the leader what our next index is in case this message beomces stale
         // so that the leader can ensure that next index increases monotoonically
         reply.next_index = self.log.len() as u64;
@@ -552,7 +583,7 @@ where
         Ok(true)
     }
 
-    fn check_last_applied(&mut self, old_commit_index: u64) -> Result<()> {
+    async fn check_last_applied(&mut self, old_commit_index: u64) -> Result<()> {
         for i in old_commit_index..self.commit_index {
             debug!(
                 "{}: applying {} to state machine",
@@ -560,16 +591,25 @@ where
             );
             let cmd = &self.log[i as usize].command;
 
-            self.apply(cmd)?;
+            let message = self.apply(cmd)?;
+
+            // get the callback and return the value to the server
+            if let Some(callback) = std::mem::replace(&mut self.callbacks[i as usize], None) {
+                let reply = ClientRequestReply {
+                    message,
+                    leader: self.leader_id.unwrap_or(0),
+                    success: true,
+                };
+                self.send_reply(reply, callback).await;
+            };
         }
 
         Ok(())
     }
 
     #[allow(unused_variables)]
-    fn apply(&self, command: &C) -> Result<()> {
-        self.machine.apply(command)?;
-        Ok(())
+    fn apply(&self, command: &C) -> Result<String> {
+        Ok(self.machine.apply(command)?)
     }
 
     async fn handle_append_entries_reply(&mut self, reply: AppendEntriesReply) -> Result<bool> {
@@ -586,7 +626,7 @@ where
                     self.next_index.insert(reply.peer, reply.next_index);
                     self.match_index.insert(reply.peer, reply.next_index - 1);
 
-                    self.check_commit_index()?;
+                    self.check_commit_index().await?;
                 } else if reply.next_index < have_index {
                     warn!(
                         "{}: Stale Append Entries Reply from {}: got next_index {}, have {}",
@@ -606,7 +646,7 @@ where
         Ok(false)
     }
 
-    fn check_commit_index(&mut self) -> Result<()> {
+    async fn check_commit_index(&mut self) -> Result<()> {
         trace!(
             "{}: checking commit_index; commit_index = {}",
             self.id,
@@ -670,7 +710,7 @@ where
             self.commit_index += 1;
             n += 1;
 
-            self.check_last_applied(n - 1)?;
+            self.check_last_applied(n - 1).await?;
         }
 
         Ok(())
