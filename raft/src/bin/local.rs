@@ -1,7 +1,8 @@
 use eyre::Result;
-use raft::net::init_local_nodes;
-use raft::net::{Client, Server};
-use raft::Message;
+use raft::{
+    net::{init_local_nodes, Client, Server},
+    Message,
+};
 
 const MIN_DELAY: u64 = 100;
 const NUM_NODES: usize = 5;

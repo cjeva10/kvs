@@ -2,8 +2,7 @@ use crate::{Message, Node, OutboundMessage};
 use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
 
-pub use self::client::LocalRaftClient;
-pub use self::server::LocalRaftServer;
+pub use self::{client::LocalRaftClient, server::LocalRaftServer};
 
 mod client;
 mod server;
@@ -53,15 +52,16 @@ pub fn init_local_nodes(
 
 #[cfg(test)]
 mod tests {
-    use crate::common::{Role, State};
-    use crate::net::{init_local_nodes, Client, Server};
-    use crate::rpc::Log;
-    use crate::Message;
+    use crate::{
+        common::{Role, State},
+        net::{init_local_nodes, Client, Server},
+        rpc::Log,
+        Message,
+    };
     use log::debug;
     use std::collections::HashMap;
-    use tokio::sync::mpsc;
     use tokio::{
-        sync::mpsc::{Receiver, Sender},
+        sync::mpsc::{self, Receiver, Sender},
         time::Duration,
     };
 
