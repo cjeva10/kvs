@@ -97,6 +97,14 @@ impl fmt::Display for Resp {
     }
 }
 
+impl TryFrom<&str> for Resp {
+    type Error = error::Error;
+
+    fn try_from(value: &str) -> std::result::Result<Self, <Resp as TryFrom<&str>>::Error> {
+        Resp::from_str(value)
+    }
+}
+
 impl Resp {
     fn stringify(&self) -> String {
         match self {

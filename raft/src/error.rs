@@ -20,5 +20,7 @@ pub enum Error {
     MissedPeer,
     #[error("Failed to parse string into command")]
     ParseError,
+    #[error("Applying command to kv store failed")]
+    KvStoreError(#[from] kvs::KvsError),
 }
 pub type Result<T> = std::result::Result<T, Error>;
