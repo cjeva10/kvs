@@ -37,7 +37,7 @@ pub fn init_local_nodes(
             dummy,
         );
         let server = LocalRaftServer::new(id as u64, server_inbox, to_inbox.clone());
-        let client = LocalRaftClient::new(id as u64, outbox, HashMap::new());
+        let client = LocalRaftClient::new(outbox, HashMap::new());
 
         // push into the vector
         everything.push((node, client, server, to_inbox.clone()));

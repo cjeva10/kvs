@@ -9,16 +9,14 @@ use crate::{Message, OutboundMessage};
 pub struct LocalRaftClient {
     peers: HashMap<u64, Sender<OutboundMessage>>,
     outbox: Receiver<OutboundMessage>,
-    id: u64,
 }
 
 impl LocalRaftClient {
     pub fn new(
-        id: u64,
         outbox: Receiver<OutboundMessage>,
         peers: HashMap<u64, Sender<OutboundMessage>>,
     ) -> Self {
-        Self { id, peers, outbox }
+        Self { peers, outbox }
     }
 
     pub fn set_peers(&mut self, peers: HashMap<u64, Sender<OutboundMessage>>) {
