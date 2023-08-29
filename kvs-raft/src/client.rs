@@ -3,7 +3,7 @@ use eyre::Result;
 use log::debug;
 use log::error;
 use raft::rpc::{raft_client::RaftClient, ClientRequestArgs};
-use resp::Resp;
+use resp::{Resp, SerializeResp};
 use std::net::SocketAddr;
 
 #[derive(Parser)]
@@ -74,7 +74,7 @@ async fn main() -> Result<()> {
                     Resp::BulkString("GET".to_string()),
                     Resp::BulkString(key),
                 ])
-                .to_string(),
+                .serialize(),
             };
             let response = client.client_request(args).await.unwrap();
             println!("RESPONSE = {:?}", response);
@@ -86,7 +86,7 @@ async fn main() -> Result<()> {
                     Resp::BulkString(key),
                     Resp::BulkString(value),
                 ])
-                .to_string(),
+                .serialize(),
             };
             let response = client.client_request(args).await.unwrap();
             println!("RESPONSE = {:?}", response);
@@ -94,17 +94,17 @@ async fn main() -> Result<()> {
         Command::Remove { key } => {
             let args = ClientRequestArgs {
                 command: Resp::Array(vec![
-                    Resp::BulkString("REMOVE".to_string()),
+                    Resp::BulkString("RM".to_string()),
                     Resp::BulkString(key),
                 ])
-                .to_string(),
+                .serialize(),
             };
             let response = client.client_request(args).await.unwrap();
             println!("RESPONSE = {:?}", response);
         }
         Command::Ping => {
             let args = ClientRequestArgs {
-                command: Resp::SimpleString("PING".to_string()).to_string(),
+                command: Resp::SimpleString("PING".to_string()).serialize(),
             };
             let response = client.client_request(args).await.unwrap();
             println!("RESPONSE = {:?}", response);

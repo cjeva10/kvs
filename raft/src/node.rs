@@ -4,7 +4,7 @@ use crate::{
         self, AppendEntriesArgs, AppendEntriesReply, ClientRequestReply, RequestVoteArgs,
         RequestVoteReply,
     },
-    state_machine::StateMachine,
+    state_machine::{Serialize, StateMachine},
     Error, Result,
 };
 use log::{debug, error, trace, warn};
@@ -28,7 +28,7 @@ where
 #[derive(Debug)]
 pub struct Node<SM, C>
 where
-    C: TryFrom<String> + Clone + Display + Debug + Default,
+    C: TryFrom<String> + Clone + Display + Serialize + Debug + Default,
     SM: StateMachine<C>,
 {
     /// This `Node`s id
@@ -88,7 +88,7 @@ where
 
 impl<SM, C> Node<SM, C>
 where
-    C: TryFrom<String> + Clone + Display + Default + Debug,
+    C: TryFrom<String> + Serialize + Clone + Display + Default + Debug,
     SM: StateMachine<C>,
 {
     /// Generate a new `Node` with a blank slate (i.e. a "Follower", with empty log)
@@ -137,7 +137,7 @@ where
             killed: false,
             leader_id: None,
             machine,
-            callbacks: Vec::new(),
+            callbacks: vec![None],
         }
     }
 
@@ -312,11 +312,14 @@ where
 
             self.send_reply(reply, callback).await;
         } else {
+            debug!("{}: We are leader, appending to log", self.id);
             self.log.push(Log {
                 term: self.term,
                 command: s.try_into().map_err(|_| Error::ParseError)?,
             });
+            trace!("{}: pushing callback {:?}", self.id, callback);
             self.callbacks.push(Some(callback));
+            self.check_commit_index().await?;
         }
         Ok(false)
     }
@@ -430,7 +433,7 @@ where
         } else {
             if reply.vote_granted {
                 self.votes += 1;
-                if self.votes >= self.peers.len() as u64 / 2 + 1 {
+                if self.votes >= self.majority() {
                     debug!(
                         "{}: won the election: votes {}, needed {}",
                         self.id,
@@ -584,7 +587,13 @@ where
     }
 
     async fn check_last_applied(&mut self, old_commit_index: u64) -> Result<()> {
-        for i in old_commit_index..self.commit_index {
+        trace!(
+            "{}: check_last_applied @ old_commit_index {} to commit_index {}",
+            self.id,
+            old_commit_index,
+            self.commit_index
+        );
+        for i in old_commit_index..self.commit_index + 1 {
             debug!(
                 "{}: applying {} to state machine",
                 self.id, self.log[i as usize].command
@@ -594,7 +603,9 @@ where
             let message = self.apply(cmd)?;
 
             // get the callback and return the value to the server
+            trace!("{}: searching for callback at {}", self.id, i);
             if let Some(callback) = std::mem::replace(&mut self.callbacks[i as usize], None) {
+                trace!("{}: found callback {:?}", self.id, callback);
                 let reply = ClientRequestReply {
                     message,
                     leader: self.leader_id.unwrap_or(0),
@@ -607,7 +618,6 @@ where
         Ok(())
     }
 
-    #[allow(unused_variables)]
     fn apply(&self, command: &C) -> Result<String> {
         Ok(self.machine.apply(command)?)
     }
@@ -656,7 +666,7 @@ where
         let mut n = commit_index + 1;
 
         loop {
-            let mut match_count = 0;
+            let mut match_count = 1;
             for peer in &self.peers {
                 if *self.match_index.get(peer).ok_or(Error::MissedPeer)? >= n {
                     trace!(
@@ -669,7 +679,7 @@ where
                 }
             }
 
-            if match_count < self.peers.len() as u64 / 2 {
+            if match_count < self.majority() {
                 trace!(
                     "{}: not enough large match counts: have {}, need {}",
                     self.id,
@@ -734,7 +744,7 @@ where
             let entries = self.log[next_index..last_log_index].to_vec();
             for entry in entries {
                 request.entries.push(rpc::Log {
-                    command: entry.command.to_string(),
+                    command: entry.command.serialize(),
                     term: entry.term,
                 });
             }
@@ -810,7 +820,7 @@ where
             "{}: calling an election: term {}, votes {}",
             self.id, self.term, self.votes
         );
-        if self.votes >= self.peers.len() as u64 / 2 + 1 {
+        if self.votes >= self.majority() {
             debug!(
                 "{}: won the election: votes {}, needed {}",
                 self.id,
@@ -888,6 +898,11 @@ where
                 to: peer,
             })
             .await;
+    }
+
+    #[inline(always)]
+    fn majority(&self) -> u64 {
+        (self.peers.len() as u64 + 1) / 2 + 1
     }
 }
 

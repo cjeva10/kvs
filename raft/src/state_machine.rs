@@ -2,7 +2,8 @@ use crate::{Error, Result};
 use kvs::KvEngine;
 use kvs::KvStore;
 use log::debug;
-use resp::Resp;
+use resp::{Resp, SerializeResp};
+use std::fmt::Display;
 
 /// A state machine has an interior `Cmd` type that defines the type of commands that it receives
 /// and implemennts `apply` which simply applies the given command to the machine
@@ -21,11 +22,65 @@ impl StateMachine<String> for DummyStateMachine {
     }
 }
 
+#[derive(Clone, Debug, Default)]
 pub enum KvCommand {
-    Set { key: String, value: String },
-    Get { key: String },
-    Remove { key: String },
+    Set {
+        key: String,
+        value: String,
+    },
+    Get {
+        key: String,
+    },
+    Remove {
+        key: String,
+    },
+    #[default]
     Ping,
+}
+
+impl Display for KvCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Set { key, value } => write!(f, "[SET, {}, {}]", key, value),
+            Self::Get { key } => write!(f, "[GET, {}]", key),
+            Self::Remove { key } => write!(f, "[REMOVE, {}]", key),
+            Self::Ping => write!(f, "PING"),
+        }
+    }
+}
+
+pub trait Serialize {
+    fn serialize(&self) -> String;
+}
+
+impl Serialize for KvCommand {
+    fn serialize(&self) -> String {
+        match self {
+            Self::Set { key, value } => Resp::Array(vec![
+                Resp::BulkString("SET".to_string()),
+                Resp::BulkString(key.to_string()),
+                Resp::BulkString(value.to_string()),
+            ])
+            .serialize(),
+            Self::Get { key } => Resp::Array(vec![
+                Resp::BulkString("GET".to_string()),
+                Resp::BulkString(key.to_string()),
+            ])
+            .serialize(),
+            Self::Remove { key } => Resp::Array(vec![
+                Resp::BulkString("RM".to_string()),
+                Resp::BulkString(key.to_string()),
+            ])
+            .serialize(),
+            Self::Ping => Resp::SimpleString("PING".to_string()).serialize(),
+        }
+    }
+}
+
+impl Serialize for String {
+    fn serialize(&self) -> String {
+        self.to_string()
+    }
 }
 
 impl TryFrom<&str> for KvCommand {
@@ -135,6 +190,12 @@ fn read_cmd(arr: Vec<Resp>) -> Result<KvCommand> {
 
 pub struct KvStateMachine {
     store: KvStore,
+}
+
+impl KvStateMachine {
+    pub fn new(store: KvStore) -> Self {
+        Self { store }
+    }
 }
 
 impl StateMachine<KvCommand> for KvStateMachine {

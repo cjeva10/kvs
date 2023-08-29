@@ -17,9 +17,9 @@ struct Cli {
     id: u64,
     #[arg(short, long)]
     addr: SocketAddr,
-    #[arg(long, required = true)]
+    #[arg(long, required = false, use_value_delimiter = true, value_delimiter=',')]
     peer_ids: Vec<u64>,
-    #[arg(long, required = true)]
+    #[arg(long, required = false, use_value_delimiter = true, value_delimiter=',')]
     peer_addrs: Vec<SocketAddr>,
 }
 

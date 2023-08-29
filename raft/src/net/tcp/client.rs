@@ -58,7 +58,6 @@ where
             match request.message {
                 Message::AppendEntries(args, callback) => {
                     let response = client.append_entries(Request::new(args)).await.unwrap();
-                    println!("RESPONSE={:?}", response);
                     match callback {
                         Callback::Mpsc(mpsc) => {
                             let _ = mpsc
@@ -72,7 +71,6 @@ where
                 }
                 Message::RequestVote(args, callback) => {
                     let response = client.request_vote(Request::new(args)).await.unwrap();
-                    println!("RESPONSE={:?}", response);
                     match callback {
                         Callback::Mpsc(mpsc) => {
                             let _ = mpsc
