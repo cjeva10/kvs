@@ -1303,6 +1303,9 @@ mod tests {
                 term: 2,
                 command: "2".to_string(),
             });
+            node.callbacks.push(None);
+            node.callbacks.push(None);
+
             node.term = 5;
             node.voted_for = None;
 
