@@ -570,6 +570,7 @@ where
         }
 
         self.voted_for = Some(args.leader_id);
+        self.leader_id = Some(args.leader_id);
         reply.success = true;
 
         // make sure to tell the leader what our next index is in case this message beomces stale
