@@ -7,7 +7,12 @@ use raft::{
     state_machine::KvStateMachine,
     Node,
 };
-use std::{collections::HashMap, env::current_dir, net::SocketAddr};
+use std::net::IpAddr;
+use std::{
+    collections::HashMap,
+    env::current_dir,
+    net::{Ipv4Addr, SocketAddr},
+};
 use tokio::try_join;
 
 #[derive(Parser)]
@@ -15,11 +20,21 @@ use tokio::try_join;
 struct Cli {
     #[arg(short, long, required = true)]
     id: u64,
-    #[arg(short, long)]
-    addr: SocketAddr,
-    #[arg(long, required = false, use_value_delimiter = true, value_delimiter=',')]
+    #[arg(short, long, required = false)]
+    addr: Option<SocketAddr>,
+    #[arg(
+        long,
+        required = false,
+        use_value_delimiter = true,
+        value_delimiter = ','
+    )]
     peer_ids: Vec<u64>,
-    #[arg(long, required = false, use_value_delimiter = true, value_delimiter=',')]
+    #[arg(
+        long,
+        required = false,
+        use_value_delimiter = true,
+        value_delimiter = ','
+    )]
     peer_addrs: Vec<SocketAddr>,
 }
 
@@ -31,11 +46,24 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    if cli.peer_ids.len() != cli.peer_addrs.len() {
+    let mut peer_addrs: Vec<SocketAddr> = Vec::new();
+    if cli.peer_addrs.len() == 0 {
+        for id in &cli.peer_ids {
+            let port: u16 = 50050 + (*id as u16);
+            peer_addrs.push(SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                port,
+            ));
+        }
+    } else {
+        peer_addrs = cli.peer_addrs;
+    }
+
+    if cli.peer_ids.len() != peer_addrs.len() {
         eprintln!(
             "peer ids and addresses must be same length: got {} and {}",
             cli.peer_ids.len(),
-            cli.peer_addrs.len()
+            peer_addrs.len()
         );
         std::process::exit(1);
     }
@@ -46,7 +74,7 @@ async fn main() -> Result<()> {
     }
 
     let mut peers = Vec::new();
-    for (id, addr) in cli.peer_ids.iter().zip(cli.peer_addrs.iter()) {
+    for (id, addr) in cli.peer_ids.iter().zip(peer_addrs.iter()) {
         let mut prefix = "http://".to_owned();
         prefix.push_str(&addr.to_string());
         peers.push((*id, prefix));
@@ -78,7 +106,13 @@ async fn main() -> Result<()> {
         tokio::spawn(async { node.start(MIN_DELAY).await.expect("Inner Node has died") });
     info!("Spawned raft node");
 
-    let addr = cli.addr;
+    let addr: SocketAddr = match cli.addr {
+        Some(a) => a,
+        None => SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            50050 + cli.id as u16,
+        ),
+    };
 
     // start the client
     let client_handle = tokio::spawn(async move {
