@@ -39,6 +39,7 @@ struct Cli {
 }
 
 const MIN_DELAY: u64 = 100;
+const INBOX_SIZE: usize = 1024;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -89,8 +90,8 @@ async fn main() -> Result<()> {
     let kvs = KvStore::open(path)?;
     let state_machine = KvStateMachine::new(kvs);
 
-    let (to_inbox, inbox) = tokio::sync::mpsc::channel(64);
-    let (to_outbox, outbox) = tokio::sync::mpsc::channel(64);
+    let (to_inbox, inbox) = tokio::sync::mpsc::channel(INBOX_SIZE);
+    let (to_outbox, outbox) = tokio::sync::mpsc::channel(INBOX_SIZE);
 
     info!("Creating new node");
     let node = Node::new(
