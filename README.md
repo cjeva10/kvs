@@ -26,8 +26,7 @@ So far, I've completed the following work.
 
 ## Roadmap
 
- - Distributed consensus with Raft
-   - Need to work on leader AppendEntries logic.
-   - Further unit testing on RPC methods.
+ - Log persistence
+ - Snapshot RPC
  - Tests for server, client, and db crates.
  - Key sharding
